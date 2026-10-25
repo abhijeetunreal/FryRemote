@@ -2,7 +2,7 @@
 name = "tvremote"
 version = "0.1.0"
 edition = "2021"
-description = "Full-featured remote control for Google TV / Android TV, written in Rust"
+description = "FryRemote — a polished Google TV / Android TV remote control"
 
 [lib]
 name = "tvremote"
@@ -49,8 +49,8 @@ strip = true
 
 # ---- cargo-apk packaging ----
 [package.metadata.android]
-package = "dev.tvremote.app"
-apk_name = "TVRemote"
+package = "dev.fryremote.app"
+apk_name = "FryRemote"
 build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
 
 [package.metadata.android.sdk]
@@ -58,7 +58,7 @@ min_sdk_version = 24
 target_sdk_version = 34
 
 [package.metadata.android.application]
-label = "TV Remote"
+label = "FryRemote"
 theme = "@android:style/Theme.Black.NoTitleBar.Fullscreen"
 
 [package.metadata.android.application.activity]

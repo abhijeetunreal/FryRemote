@@ -101,7 +101,7 @@ impl Controller {
         set_pairing(&shared, &notify, PairingUi::Starting);
 
         self.rt.spawn(async move {
-            let mut session = match PairingSession::start(&host, &creds, "TV Remote").await {
+            let mut session = match PairingSession::start(&host, &creds, "FryRemote").await {
                 Ok(s) => s,
                 Err(e) => {
                     set_pairing(&shared, &notify, PairingUi::Error(format!("{e:#}")));

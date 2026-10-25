@@ -26,7 +26,7 @@ fn try_acquire() -> Result<(), Box<dyn std::error::Error>> {
             &[JValue::Object(&service_name)],
         )?
         .l()?;
-    let tag = env.new_string("tvremote")?;
+    let tag = env.new_string("fryremote")?;
     let lock = env
         .call_method(
             &wifi,

@@ -1,9 +1,17 @@
-# TV Remote (Rust)
+# FryRemote
 
-A remote control for **Google TV / Android TV**, written in Rust. It speaks the
-same *Android TV Remote Service v2* protocol as Google's own remote app, so it
-works with Google TV, Chromecast with Google TV, Sony/TCL/Xiaomi/Mi Box, Nvidia
-Shield and other Android TV devices on the same Wi-Fi network.
+A polished, minimal remote control for **Google TV / Android TV** built in Rust.
+It speaks the same *Android TV Remote Service v2* protocol as Google's own
+remote app, so it works with Google TV, Chromecast with Google TV, Sony/TCL/
+Xiaomi/Mi Box, Nvidia Shield and other Android TV devices on the same Wi‑Fi
+network.
+
+![FryRemote app mock](assets/fryremote-icon.svg)
+
+## Release APK
+
+Every GitHub release automatically includes the latest `FryRemote.apk` built from
+this workflow. Download it from the release page and install it on the phone.
 
 ## Features
 
@@ -26,8 +34,8 @@ Voice search is not available: Google does not expose it to third-party clients.
    `.github` folder).
 2. Open the **Actions** tab, choose **Build APK**, press **Run workflow**
    (it also runs on every push).
-3. After a few minutes download the **TVRemote-apk** artifact, unzip it and
-   copy `TVRemote.apk` to your phone.
+3. After a few minutes download the **FryRemote-apk** artifact, unzip it and
+   copy `FryRemote.apk` to your phone.
 4. On the phone open the file and allow *Install unknown apps* when asked.
 
 To be able to install future builds *over* the old one, add repository secrets
@@ -44,7 +52,7 @@ export ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/26.3.11579264
 export CARGO_APK_RELEASE_KEYSTORE=$HOME/release.keystore
 export CARGO_APK_RELEASE_KEYSTORE_PASSWORD=yourpassword
 cargo apk build --release --lib
-# APK: target/release/apk/TVRemote.apk
+# APK: target/release/apk/FryRemote.apk
 ```
 
 Requires Android 7.0 (API 24) or newer.

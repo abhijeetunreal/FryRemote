@@ -171,11 +171,11 @@ async fn session(
                         configure: Some(RemoteConfigure {
                             code1: REMOTE_FEATURES,
                             device_info: Some(RemoteDeviceInfo {
-                                model: "TV Remote".into(),
+                                model: "FryRemote".into(),
                                 vendor: "Rust".into(),
                                 unknown1: 1,
                                 unknown2: "1".into(),
-                                package_name: "dev.tvremote.app".into(),
+                                package_name: "dev.fryremote.app".into(),
                                 app_version: "1.0.0".into(),
                             }),
                         }),

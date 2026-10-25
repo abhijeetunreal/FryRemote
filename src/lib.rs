@@ -21,7 +21,7 @@ mod android;
 #[no_mangle]
 pub fn android_main(app: android_activity::AndroidApp) {
     android_logger::init_once(
-        android_logger::Config::default().with_max_level(log::LevelFilter::Info).with_tag("tvremote"),
+        android_logger::Config::default().with_max_level(log::LevelFilter::Info).with_tag("fryremote"),
     );
     let data_dir = app
         .internal_data_path()
@@ -30,7 +30,7 @@ pub fn android_main(app: android_activity::AndroidApp) {
 
     let options = eframe::NativeOptions { android_app: Some(app), ..Default::default() };
     if let Err(e) = eframe::run_native(
-        "TV Remote",
+        "FryRemote",
         options,
         Box::new(move |cc| Ok(Box::new(app::RemoteApp::new(cc, data_dir)))),
     ) {
@@ -50,7 +50,7 @@ pub fn run_desktop() -> eframe::Result {
         ..Default::default()
     };
     eframe::run_native(
-        "TV Remote",
+        "FryRemote",
         options,
         Box::new(move |cc| Ok(Box::new(app::RemoteApp::new(cc, dir)))),
     )

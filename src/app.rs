@@ -7,13 +7,18 @@ use eframe::egui::{self, pos2, vec2, Color32, RichText, Sense, Shape, Stroke, Ui
 use std::path::PathBuf;
 use std::sync::Arc;
 
-const BG: Color32 = Color32::from_rgb(16, 18, 24);
-const BTN: Color32 = Color32::from_rgb(40, 44, 58);
-const BTN_DOWN: Color32 = Color32::from_rgb(70, 78, 110);
-const ACCENT: Color32 = Color32::from_rgb(110, 140, 255);
-const GOOD: Color32 = Color32::from_rgb(80, 200, 120);
-const WARN: Color32 = Color32::from_rgb(240, 180, 70);
-const BAD: Color32 = Color32::from_rgb(235, 95, 95);
+const BG: Color32 = Color32::from_rgb(3, 9, 19);
+const PANEL: Color32 = Color32::from_rgb(10, 20, 35);
+const PANEL_ALT: Color32 = Color32::from_rgb(15, 27, 44);
+const BTN: Color32 = Color32::from_rgb(18, 31, 52);
+const BTN_DOWN: Color32 = Color32::from_rgb(35, 56, 92);
+const ACCENT: Color32 = Color32::from_rgb(35, 165, 255);
+const ACCENT_SOFT: Color32 = Color32::from_rgb(20, 117, 188);
+const GOOD: Color32 = Color32::from_rgb(80, 220, 140);
+const WARN: Color32 = Color32::from_rgb(244, 186, 77);
+const BAD: Color32 = Color32::from_rgb(255, 95, 95);
+const TEXT: Color32 = Color32::from_rgb(235, 244, 255);
+const MUTED: Color32 = Color32::from_rgb(123, 144, 175);
 
 #[derive(Clone)]
 enum Screen {
@@ -56,14 +61,20 @@ impl RemoteApp {
 fn setup_style(ctx: &egui::Context) {
     let mut style = (*ctx.global_style()).clone();
     style.visuals = egui::Visuals::dark();
+    style.visuals.override_text_color = Some(TEXT);
+    style.visuals.window_fill = BG;
     style.visuals.panel_fill = BG;
+    style.visuals.widgets.inactive.bg_fill = BTN;
     style.visuals.widgets.inactive.weak_bg_fill = BTN;
+    style.visuals.widgets.hovered.bg_fill = BTN_DOWN;
     style.visuals.widgets.hovered.weak_bg_fill = BTN_DOWN;
+    style.visuals.widgets.active.bg_fill = BTN_DOWN;
     style.visuals.widgets.active.weak_bg_fill = BTN_DOWN;
+    style.visuals.selection.stroke = Stroke::new(1.0, ACCENT);
     style.spacing.item_spacing = vec2(10.0, 10.0);
     style.spacing.button_padding = vec2(14.0, 12.0);
     for (_, f) in style.text_styles.iter_mut() {
-        f.size = (f.size * 1.2).max(16.0);
+        f.size = (f.size * 1.18).max(16.0);
     }
     ctx.set_global_style(style);
 }
@@ -103,9 +114,27 @@ impl RemoteApp {
             self.ctrl.scan();
         }
 
-        ui.heading("TV Remote");
-        ui.label(RichText::new("Google TV / Android TV").color(Color32::GRAY));
-        ui.add_space(6.0);
+        ui.add_space(10.0);
+        ui.horizontal(|ui| {
+            let icon = egui::Rect::from_min_size(ui.cursor().min, vec2(28.0, 28.0));
+            ui.painter().circle_filled(icon.center(), 14.0, ACCENT);
+            ui.painter().circle_filled(icon.center() + vec2(0.0, 0.0), 8.0, BG);
+            ui.painter().rect_filled(
+                egui::Rect::from_center_size(icon.center(), vec2(7.0, 7.0)),
+                3.0,
+                BG,
+            );
+            ui.spacing_mut().item_spacing.x = 10.0;
+            ui.label(RichText::new("FryRemote").size(24.0).strong());
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.horizontal(|ui| {
+                    ui.add(egui::CircleShape::filled(ACCENT, 7.0, pos2(0.0, 0.0)));
+                    ui.label(RichText::new("Connected").color(MUTED).small());
+                });
+            });
+        });
+        ui.label(RichText::new("Your Google TV Remote").color(MUTED).small());
+        ui.add_space(14.0);
 
         if let Some(e) = self.ctrl.creds_error() {
             ui.colored_label(BAD, format!("Could not create secure identity: {e}"));
@@ -275,21 +304,28 @@ impl RemoteApp {
         let tv = self.ctrl.active.clone();
 
         // Header
+        ui.add_space(8.0);
         ui.horizontal(|ui| {
-            if ui.button("< TVs").clicked() {
+            if ui.button("<").clicked() {
                 self.ctrl.disconnect();
                 *next = Some(Screen::List);
             }
+            ui.add_space(8.0);
             if let Some(tv) = &tv {
-                ui.label(RichText::new(&tv.name).size(20.0).strong());
+                ui.label(RichText::new(&tv.name).size(22.0).strong());
             }
-            let (color, text) = match &snap.status {
-                ConnStatus::Connected => (GOOD, "connected"),
-                ConnStatus::Connecting => (WARN, "connecting"),
-                ConnStatus::Failed(_) => (BAD, "offline"),
-                ConnStatus::Idle => (Color32::GRAY, "idle"),
-            };
-            ui.label(RichText::new(format!("o {text}")).color(color));
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                let (color, text) = match &snap.status {
+                    ConnStatus::Connected => (GOOD, "Connected"),
+                    ConnStatus::Connecting => (WARN, "Connecting"),
+                    ConnStatus::Failed(_) => (BAD, "Offline"),
+                    ConnStatus::Idle => (MUTED, "Idle"),
+                };
+                ui.horizontal(|ui| {
+                    ui.add(egui::CircleShape::filled(color, 6.0, pos2(0.0, 0.0)));
+                    ui.label(RichText::new(text).color(color).small());
+                });
+            });
         });
 
         if let ConnStatus::Failed(msg) = &snap.status {
@@ -333,9 +369,9 @@ impl RemoteApp {
         }
 
         // D-pad
-        ui.add_space(4.0);
-        let cell = ((w - 2.0 * gap) / 3.0).min(120.0);
-        let sz = vec2(cell, cell * 0.78);
+        ui.add_space(18.0);
+        let cell = ((w - 2.0 * gap) / 3.0).min(125.0);
+        let sz = vec2(cell, cell * 0.90);
         centered(ui, 3.0 * cell + 2.0 * gap, |ui| {
             ui.add_space(cell + gap);
             if arrow_button(ui, Dir::Up, sz) {

@@ -3,7 +3,14 @@ name: Build APK
 on:
   push:
     branches: [main, master]
+    tags:
+      - "v*"
+  release:
+    types: [published]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 env:
   NDK_VERSION: 26.3.11579264
@@ -64,6 +71,13 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: TVRemote-apk
+          name: FryRemote-apk
           path: target/release/apk/*.apk
           if-no-files-found: error
+
+      - name: Publish APK to GitHub release
+        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: target/release/apk/*.apk
+          fail_on_unmatched_files: true
