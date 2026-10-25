@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <!-- Speaker cone -->
+  <path d="M 4 9 L 8 9 L 13 5.5 L 13 18.5 L 8 15 L 4 15 Z" fill="#FFFFFF"/>
+  <!-- Single small wave -->
+  <path d="M 16.5 9.5 C 17.5 10.3 17.5 13.7 16.5 14.5" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+</svg>

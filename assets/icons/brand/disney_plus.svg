@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <!-- Disney swoosh arc -->
+  <path d="M 3 19 C 7 5 18 5 21 11" stroke="#4895EF" stroke-width="2.2" stroke-linecap="round"/>
+  <!-- Bold D shape -->
+  <path d="M 7 9 L 11 9 C 14 9 16 11 16 14 C 16 17 14 19 11 19 L 7 19 Z" fill="#FFFFFF"/>
+  <path d="M 9.5 11.5 L 11 11.5 C 12.5 11.5 13.5 12.5 13.5 14 C 13.5 15.5 12.5 16.5 11 16.5 L 9.5 16.5 Z" fill="#0F172A"/>
+  <!-- Plus sign -->
+  <path d="M 17 14 L 21 14 M 19 12 L 19 16" stroke="#4895EF" stroke-width="2" stroke-linecap="round"/>
+</svg>
