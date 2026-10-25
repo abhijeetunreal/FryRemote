@@ -68,16 +68,17 @@ pub fn render_expressive_ui(
                 }
 
                 // Mode switch button
+                let next_mode = ui_mode.next();
                 if ui
                     .button(
-                        eframe::egui::RichText::new("🛠️ Advanced Mode")
+                        eframe::egui::RichText::new(format!("⚡ {}", next_mode.name()))
                             .size(11.0)
                             .color(palette.primary),
                     )
                     .clicked()
                 {
                     haptics::trigger(HapticStyle::Heavy);
-                    *ui_mode = UiMode::Advanced;
+                    *ui_mode = next_mode;
                 }
 
                 // Theme selector dots
@@ -270,8 +271,8 @@ fn render_bottom_nav(
                 }
                 "Advanced" => {
                     haptics::trigger(HapticStyle::Heavy);
-                    *ui_mode = UiMode::Advanced;
-                    state.send_command_feedback("Advanced Mode Activated", now);
+                    *ui_mode = ui_mode.next();
+                    state.send_command_feedback(format!("Layout: {}", ui_mode.name()), now);
                 }
                 _ => {}
             }

@@ -32,6 +32,7 @@ pub enum ActiveSheet {
     MediaScrubber,
     Voice,
     UxNotes,
+    Apps,
 }
 
 #[derive(Clone, Debug)]
@@ -45,6 +46,7 @@ pub struct UiState {
     pub is_playing: bool,
     pub is_muted: bool,
     pub volume_level: f32, // 0.0 to 1.0
+    pub volume_toast_until: f64,
     pub current_channel: u32,
     pub numpad_buffer: String,
 
@@ -79,6 +81,7 @@ impl Default for UiState {
             is_playing: true,
             is_muted: false,
             volume_level: 0.45,
+            volume_toast_until: 0.0,
             current_channel: 104,
             numpad_buffer: "104".to_string(),
 

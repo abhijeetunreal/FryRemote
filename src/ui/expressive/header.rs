@@ -210,8 +210,8 @@ pub fn render_expressive_header(
 
             if adv_resp.clicked() {
                 haptics::trigger(HapticStyle::Heavy);
-                *ui_mode = UiMode::Advanced;
-                state.send_command_feedback("Advanced Mode", now);
+                *ui_mode = ui_mode.next();
+                state.send_command_feedback(format!("Layout: {}", ui_mode.name()), now);
             }
         });
     });

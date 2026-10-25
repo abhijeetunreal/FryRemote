@@ -145,14 +145,15 @@ fn render_header(
                 state.show_tv_selector = !state.show_tv_selector;
             }
 
-            // Mode switcher pill
-            let mode_btn = egui::Button::new(RichText::new("✨ Expressive UI").size(11.5).strong().color(Color32::from_rgb(147, 197, 253)))
+            // Mode switcher pill (loops layouts)
+            let next_mode = ui_mode.next();
+            let mode_btn = egui::Button::new(RichText::new(format!("⚡ {}", next_mode.name())).size(11.5).strong().color(Color32::from_rgb(147, 197, 253)))
                 .fill(Color32::from_rgb(20, 35, 60))
                 .stroke(Stroke::new(1.0, Color32::from_rgb(59, 130, 246)))
                 .corner_radius(14.0);
             if ui.add(mode_btn).clicked() {
                 haptics::trigger(HapticStyle::Heavy);
-                *ui_mode = UiMode::Expressive;
+                *ui_mode = next_mode;
             }
         });
     });

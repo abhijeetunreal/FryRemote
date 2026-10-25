@@ -4,7 +4,10 @@ use eframe::egui::{self, Color32, Stroke};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ThemeKind {
-    Sky,      // Material Sky (Google TV Blue) - Default
+    Obsidian, // Apple TV Obsidian Matte - Default
+    Silver,   // Apple TV Anodized Silver
+    Titanium, // Apple TV Warm Titanium
+    Sky,      // Material Sky (Google TV Blue)
     Violet,   // Expressive Violet
     Emerald,  // Mint Emerald
     Light,    // Daylight Soft
@@ -14,6 +17,9 @@ pub enum ThemeKind {
 impl ThemeKind {
     pub fn next(&self) -> Self {
         match self {
+            ThemeKind::Obsidian => ThemeKind::Silver,
+            ThemeKind::Silver => ThemeKind::Titanium,
+            ThemeKind::Titanium => ThemeKind::Obsidian,
             ThemeKind::Sky => ThemeKind::Violet,
             ThemeKind::Violet => ThemeKind::Emerald,
             ThemeKind::Emerald => ThemeKind::Light,
@@ -24,6 +30,9 @@ impl ThemeKind {
 
     pub fn name(&self) -> &'static str {
         match self {
+            ThemeKind::Obsidian => "Obsidian Matte",
+            ThemeKind::Silver => "Anodized Silver",
+            ThemeKind::Titanium => "Warm Titanium",
             ThemeKind::Sky => "Sky Blue",
             ThemeKind::Violet => "Expressive Violet",
             ThemeKind::Emerald => "Mint Emerald",
@@ -34,6 +43,9 @@ impl ThemeKind {
 
     pub fn dot_color(&self) -> Color32 {
         match self {
+            ThemeKind::Obsidian => Color32::from_rgb(168, 199, 250),
+            ThemeKind::Silver => Color32::from_rgb(0, 97, 164),
+            ThemeKind::Titanium => Color32::from_rgb(208, 188, 255),
             ThemeKind::Sky => Color32::from_rgb(144, 205, 255),
             ThemeKind::Violet => Color32::from_rgb(211, 188, 253),
             ThemeKind::Emerald => Color32::from_rgb(130, 217, 180),
@@ -68,11 +80,83 @@ pub struct ThemePalette {
 impl ThemePalette {
     pub fn for_kind(kind: ThemeKind) -> Self {
         match kind {
+            ThemeKind::Obsidian => Self::obsidian(),
+            ThemeKind::Silver => Self::silver(),
+            ThemeKind::Titanium => Self::titanium(),
             ThemeKind::Sky => Self::sky(),
             ThemeKind::Violet => Self::violet(),
             ThemeKind::Emerald => Self::emerald(),
             ThemeKind::Light => Self::light(),
             ThemeKind::Classic => Self::classic(),
+        }
+    }
+
+    pub fn obsidian() -> Self {
+        Self {
+            kind: ThemeKind::Obsidian,
+            is_dark: true,
+            bg: Color32::from_rgb(7, 8, 10),                 // #07080a canvas
+            surface: Color32::from_rgb(19, 22, 27),          // #13161b remote body
+            surface_low: Color32::from_rgb(27, 32, 40),      // #1b2028 pad ring
+            surface_high: Color32::from_rgb(29, 34, 42),     // #1d222a btn surface
+            surface_highest: Color32::from_rgb(37, 43, 53),  // #252b35 btn hover
+            primary: Color32::from_rgb(168, 199, 250),       // #a8c7fa accent
+            on_primary: Color32::from_rgb(0, 48, 80),
+            primary_container: Color32::from_rgb(0, 74, 119),// #004a77
+            on_primary_container: Color32::from_rgb(209, 228, 255),
+            secondary_container: Color32::from_rgb(20, 24, 31), // #14181f pad center
+            on_secondary_container: Color32::from_rgb(241, 245, 249),
+            tertiary: Color32::from_rgb(208, 188, 255),
+            tertiary_container: Color32::from_rgb(79, 55, 139),
+            text: Color32::from_rgb(241, 245, 249),          // #f1f5f9
+            text_muted: Color32::from_rgb(127, 139, 153),    // #7f8b99
+            outline_color: Color32::from_rgba_unmultiplied(255, 255, 255, 20),
+        }
+    }
+
+    pub fn silver() -> Self {
+        Self {
+            kind: ThemeKind::Silver,
+            is_dark: false,
+            bg: Color32::from_rgb(220, 226, 234),            // #dce2ea canvas
+            surface: Color32::from_rgb(238, 242, 246),       // #eef2f6 remote body
+            surface_low: Color32::from_rgb(32, 36, 42),      // #20242a pad ring
+            surface_high: Color32::from_rgb(34, 38, 44),     // #22262c btn surface
+            surface_highest: Color32::from_rgb(46, 51, 59),  // #2e333b btn hover
+            primary: Color32::from_rgb(0, 97, 164),          // #0061a4 accent
+            on_primary: Color32::from_rgb(255, 255, 255),
+            primary_container: Color32::from_rgb(209, 228, 255), // #d1e4ff
+            on_primary_container: Color32::from_rgb(0, 29, 53),
+            secondary_container: Color32::from_rgb(24, 27, 32),  // #181b20 pad center
+            on_secondary_container: Color32::from_rgb(248, 250, 252),
+            tertiary: Color32::from_rgb(112, 67, 142),
+            tertiary_container: Color32::from_rgb(244, 217, 255),
+            text: Color32::from_rgb(248, 250, 252),          // #f8fafc text
+            text_muted: Color32::from_rgb(100, 116, 139),    // #64748b text-secondary
+            outline_color: Color32::from_rgba_unmultiplied(0, 0, 0, 38),
+        }
+    }
+
+    pub fn titanium() -> Self {
+        Self {
+            kind: ThemeKind::Titanium,
+            is_dark: true,
+            bg: Color32::from_rgb(12, 11, 14),               // #0c0b0e canvas
+            surface: Color32::from_rgb(25, 23, 29),          // #19171d remote body
+            surface_low: Color32::from_rgb(35, 32, 41),      // #232029 pad ring
+            surface_high: Color32::from_rgb(38, 35, 45),     // #26232d btn surface
+            surface_highest: Color32::from_rgb(48, 44, 56),  // #302c38 btn hover
+            primary: Color32::from_rgb(208, 188, 255),       // #d0bcff accent
+            on_primary: Color32::from_rgb(56, 30, 114),
+            primary_container: Color32::from_rgb(79, 55, 139),// #4f378b
+            on_primary_container: Color32::from_rgb(235, 221, 255),
+            secondary_container: Color32::from_rgb(26, 24, 31), // #1a181f pad center
+            on_secondary_container: Color32::from_rgb(243, 239, 247),
+            tertiary: Color32::from_rgb(244, 183, 209),
+            tertiary_container: Color32::from_rgb(99, 59, 78),
+            text: Color32::from_rgb(243, 239, 247),          // #f3eff7 text
+            text_muted: Color32::from_rgb(147, 143, 153),    // #938f99
+            outline_color: Color32::from_rgba_unmultiplied(255, 255, 255, 20),
         }
     }
 

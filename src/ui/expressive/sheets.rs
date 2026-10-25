@@ -58,6 +58,7 @@ pub fn render_expressive_sheets(
         ActiveSheet::UxNotes => {
             render_ux_modal(ui, palette, state, screen_rect);
         }
+        ActiveSheet::Apps => {}
         ActiveSheet::None => {}
     }
 }
