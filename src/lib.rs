@@ -19,6 +19,7 @@ pub mod state;
 pub mod store;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod tls;
+pub mod ui;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod wire;
 
