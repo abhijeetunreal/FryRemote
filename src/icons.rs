@@ -220,6 +220,46 @@ pub fn svg_nav_more(ui: &Ui, rect: Rect, color: Color32) {
     render_svg(ui, rect, egui::include_image!("../assets/icons/nav/nav_more.svg"), Some(color));
 }
 
+pub fn svg_mic(ui: &Ui, rect: Rect, color: Color32) {
+    render_svg(ui, rect, egui::include_image!("../assets/icons/remote/mic.svg"), Some(color));
+}
+
+pub fn svg_keyboard(ui: &Ui, rect: Rect, color: Color32) {
+    render_svg(ui, rect, egui::include_image!("../assets/icons/remote/keyboard.svg"), Some(color));
+}
+
+pub fn svg_tune(ui: &Ui, rect: Rect, color: Color32) {
+    render_svg(ui, rect, egui::include_image!("../assets/icons/remote/tune.svg"), Some(color));
+}
+
+pub fn svg_palette(ui: &Ui, rect: Rect, color: Color32) {
+    render_svg(ui, rect, egui::include_image!("../assets/icons/remote/palette.svg"), Some(color));
+}
+
+pub fn svg_replay_10(ui: &Ui, rect: Rect, color: Color32) {
+    render_svg(ui, rect, egui::include_image!("../assets/icons/remote/replay_10.svg"), Some(color));
+}
+
+pub fn svg_forward_10(ui: &Ui, rect: Rect, color: Color32) {
+    render_svg(ui, rect, egui::include_image!("../assets/icons/remote/forward_10.svg"), Some(color));
+}
+
+pub fn svg_movie(ui: &Ui, rect: Rect, color: Color32) {
+    render_svg(ui, rect, egui::include_image!("../assets/icons/remote/movie.svg"), Some(color));
+}
+
+pub fn svg_gamepad(ui: &Ui, rect: Rect, color: Color32) {
+    render_svg(ui, rect, egui::include_image!("../assets/icons/remote/gamepad.svg"), Some(color));
+}
+
+pub fn svg_touch_app(ui: &Ui, rect: Rect, color: Color32) {
+    render_svg(ui, rect, egui::include_image!("../assets/icons/remote/touch_app.svg"), Some(color));
+}
+
+pub fn svg_dialpad(ui: &Ui, rect: Rect, color: Color32) {
+    render_svg(ui, rect, egui::include_image!("../assets/icons/remote/dialpad.svg"), Some(color));
+}
+
 // ---------------------------------------------------------------------------
 // Analytic Smooth Clover Geometry for Central D-Pad
 // ---------------------------------------------------------------------------
@@ -417,4 +457,228 @@ pub fn draw_clover_dpad(
         FontId::proportional(12.5),
         Color32::WHITE,
     );
+}
+
+// ---------------------------------------------------------------------------
+// Material 3 Expressive Vector Icon Painters
+// ---------------------------------------------------------------------------
+
+pub fn draw_icon_mic(painter: &egui::Painter, rect: Rect, color: Color32) {
+    let c = rect.center();
+    let r_pill = rect.height() * 0.22;
+    let pill_top = c.y - rect.height() * 0.32;
+    let pill_bot = c.y + rect.height() * 0.04;
+    let pill_rect = Rect::from_x_y_ranges(c.x - r_pill..=c.x + r_pill, pill_top..=pill_bot);
+    painter.rect_filled(pill_rect, r_pill, color);
+
+    // Cradle arc
+    let cradle_r = rect.width() * 0.35;
+    let n = 12;
+    let mut arc_pts = Vec::with_capacity(n);
+    for i in 0..=n {
+        let a = std::f32::consts::PI * (0.05 + 0.9 * (i as f32 / n as f32));
+        arc_pts.push(pos2(c.x + cradle_r * a.cos(), c.y - rect.height() * 0.05 + cradle_r * a.sin()));
+    }
+    painter.add(Shape::line(arc_pts, Stroke::new(rect.width() * 0.09, color)));
+
+    // Stem and base
+    let stem_top = c.y - rect.height() * 0.05 + cradle_r;
+    let stem_bot = rect.max.y - rect.height() * 0.12;
+    painter.line_segment([pos2(c.x, stem_top), pos2(c.x, stem_bot)], Stroke::new(rect.width() * 0.09, color));
+    painter.line_segment(
+        [pos2(c.x - rect.width() * 0.22, stem_bot), pos2(c.x + rect.width() * 0.22, stem_bot)],
+        Stroke::new(rect.width() * 0.09, color),
+    );
+}
+
+pub fn draw_icon_keyboard(painter: &egui::Painter, rect: Rect, color: Color32) {
+    let w = rect.width() * 0.86;
+    let h = rect.height() * 0.60;
+    let box_rect = Rect::from_center_size(rect.center(), vec2(w, h));
+    painter.rect_stroke(box_rect, 3.5, Stroke::new(1.4, color), StrokeKind::Inside);
+
+    let rows = 2;
+    let cols = 4;
+    for r in 0..rows {
+        for c_idx in 0..cols {
+            let x = box_rect.min.x + (c_idx as f32 + 0.5) * (w / cols as f32);
+            let y = box_rect.min.y + (r as f32 + 0.45) * (h * 0.55 / rows as f32) + 2.0;
+            painter.circle_filled(pos2(x, y), 1.0, color);
+        }
+    }
+    let space_y = box_rect.max.y - 3.2;
+    painter.line_segment([pos2(box_rect.min.x + w * 0.25, space_y), pos2(box_rect.max.x - w * 0.25, space_y)], Stroke::new(1.4, color));
+}
+
+pub fn draw_icon_palette(painter: &egui::Painter, rect: Rect, color: Color32) {
+    let c = rect.center();
+    let r = rect.width() * 0.38;
+    painter.circle_stroke(c, r, Stroke::new(1.4, color));
+    let dots = [(-0.18, -0.15), (0.15, -0.18), (-0.12, 0.14), (0.16, 0.10)];
+    for (dx, dy) in dots {
+        painter.circle_filled(c + vec2(dx * rect.width(), dy * rect.height()), 1.4, color);
+    }
+}
+
+pub fn draw_icon_tune(painter: &egui::Painter, rect: Rect, color: Color32) {
+    let stroke = Stroke::new(1.4, color);
+    let xs = [rect.min.x + rect.width() * 0.25, rect.center().x, rect.max.x - rect.width() * 0.25];
+    let slider_ys = [0.35, 0.65, 0.40];
+
+    for (i, &x) in xs.iter().enumerate() {
+        painter.line_segment([pos2(x, rect.min.y + 3.0), pos2(x, rect.max.y - 3.0)], stroke);
+        let knob_y = rect.min.y + rect.height() * slider_ys[i];
+        painter.rect_filled(Rect::from_center_size(pos2(x, knob_y), vec2(6.0, 3.5)), 1.2, color);
+    }
+}
+
+pub fn draw_icon_expand_more(painter: &egui::Painter, rect: Rect, color: Color32) {
+    let c = rect.center();
+    let w = rect.width() * 0.35;
+    let h = rect.height() * 0.20;
+    painter.add(Shape::line(
+        vec![pos2(c.x - w, c.y - h * 0.5), pos2(c.x, c.y + h * 0.5), pos2(c.x + w, c.y - h * 0.5)],
+        Stroke::new(1.8, color),
+    ));
+}
+
+pub fn draw_icon_replay_10(painter: &egui::Painter, rect: Rect, color: Color32) {
+    let c = rect.center();
+    let r = rect.width() * 0.36;
+    let n = 16;
+    let mut pts = Vec::with_capacity(n);
+    for i in 0..=n {
+        let a = std::f32::consts::PI * (0.3 + 1.5 * (i as f32 / n as f32));
+        pts.push(pos2(c.x + r * a.cos(), c.y + r * a.sin()));
+    }
+    painter.add(Shape::line(pts, Stroke::new(1.5, color)));
+    let start_p = pos2(c.x + r * (std::f32::consts::PI * 0.3).cos(), c.y + r * (std::f32::consts::PI * 0.3).sin());
+    painter.add(Shape::convex_polygon(
+        vec![start_p + vec2(-1.0, -4.0), start_p + vec2(4.0, 0.0), start_p + vec2(-4.0, 2.0)],
+        color,
+        Stroke::NONE,
+    ));
+    painter.text(c + vec2(0.0, 0.5), Align2::CENTER_CENTER, "10", FontId::proportional(8.5), color);
+}
+
+pub fn draw_icon_forward_10(painter: &egui::Painter, rect: Rect, color: Color32) {
+    let c = rect.center();
+    let r = rect.width() * 0.36;
+    let n = 16;
+    let mut pts = Vec::with_capacity(n);
+    for i in 0..=n {
+        let a = std::f32::consts::PI * (-0.3 - 1.5 * (i as f32 / n as f32));
+        pts.push(pos2(c.x + r * a.cos(), c.y + r * a.sin()));
+    }
+    painter.add(Shape::line(pts, Stroke::new(1.5, color)));
+    let start_p = pos2(c.x + r * (-std::f32::consts::PI * 0.3).cos(), c.y + r * (-std::f32::consts::PI * 0.3).sin());
+    painter.add(Shape::convex_polygon(
+        vec![start_p + vec2(1.0, -4.0), start_p + vec2(-4.0, 0.0), start_p + vec2(4.0, 2.0)],
+        color,
+        Stroke::NONE,
+    ));
+    painter.text(c + vec2(0.0, 0.5), Align2::CENTER_CENTER, "10", FontId::proportional(8.5), color);
+}
+
+pub fn draw_icon_movie(painter: &egui::Painter, rect: Rect, color: Color32) {
+    let box_rect = Rect::from_center_size(rect.center(), vec2(rect.width() * 0.78, rect.height() * 0.65));
+    painter.rect_stroke(box_rect, 2.5, Stroke::new(1.4, color), StrokeKind::Inside);
+    let sp_w = 2.0;
+    let sp_h = 2.0;
+    for i in 0..3 {
+        let x = box_rect.min.x + 3.0 + (i as f32) * ((box_rect.width() - 8.0) / 2.0);
+        painter.rect_filled(Rect::from_min_size(pos2(x, box_rect.min.y + 1.5), vec2(sp_w, sp_h)), 0.5, color);
+        painter.rect_filled(Rect::from_min_size(pos2(x, box_rect.max.y - 3.5), vec2(sp_w, sp_h)), 0.5, color);
+    }
+    let c = box_rect.center();
+    painter.add(Shape::convex_polygon(
+        vec![c + vec2(-2.5, -3.5), c + vec2(3.5, 0.0), c + vec2(-2.5, 3.5)],
+        color,
+        Stroke::NONE,
+    ));
+}
+
+pub fn draw_icon_gamepad(painter: &egui::Painter, rect: Rect, color: Color32) {
+    let c = rect.center();
+    let body = Rect::from_center_size(c, vec2(rect.width() * 0.8, rect.height() * 0.48));
+    painter.rect_stroke(body, 5.0, Stroke::new(1.3, color), StrokeKind::Inside);
+    painter.line_segment([pos2(body.min.x + 4.5, c.y - 2.5), pos2(body.min.x + 4.5, c.y + 2.5)], Stroke::new(1.2, color));
+    painter.line_segment([pos2(body.min.x + 2.0, c.y), pos2(body.min.x + 7.0, c.y)], Stroke::new(1.2, color));
+    painter.circle_filled(pos2(body.max.x - 4.0, c.y - 1.5), 1.0, color);
+    painter.circle_filled(pos2(body.max.x - 6.5, c.y + 1.5), 1.0, color);
+}
+
+pub fn draw_icon_touch_app(painter: &egui::Painter, rect: Rect, color: Color32) {
+    let c = rect.center();
+    painter.circle_stroke(c + vec2(0.0, -3.0), rect.width() * 0.22, Stroke::new(1.2, color));
+    let finger_pts = vec![
+        c + vec2(0.0, -3.0),
+        c + vec2(0.0, 4.0),
+        c + vec2(3.0, 6.0),
+        c + vec2(5.0, 3.0),
+        c + vec2(5.0, -1.0),
+    ];
+    painter.add(Shape::line(finger_pts, Stroke::new(1.2, color)));
+}
+
+pub fn draw_icon_dialpad(painter: &egui::Painter, rect: Rect, color: Color32) {
+    let c = rect.center();
+    let r = 1.6;
+    let step = rect.width() * 0.22;
+    for row in -1..=1 {
+        for col in -1..=1 {
+            let p = c + vec2((col as f32) * step, (row as f32) * step);
+            painter.circle_filled(p, r, color);
+        }
+    }
+}
+
+pub fn draw_icon_check(painter: &egui::Painter, rect: Rect, color: Color32) {
+    let c = rect.center();
+    let pts = vec![c + vec2(-4.5, 0.0), c + vec2(-1.0, 3.5), c + vec2(5.0, -3.5)];
+    painter.add(Shape::line(pts, Stroke::new(2.0, color)));
+}
+
+pub fn draw_icon_power_ring(painter: &egui::Painter, rect: Rect, color: Color32) {
+    let c = rect.center();
+    let r = rect.width() * 0.35;
+    let n = 20;
+    let mut pts = Vec::with_capacity(n);
+    for i in 0..=n {
+        let a = std::f32::consts::PI * (0.68 + 1.64 * (i as f32 / n as f32));
+        pts.push(pos2(c.x + r * a.cos(), c.y + r * a.sin()));
+    }
+    painter.add(Shape::line(pts, Stroke::new(2.0, color)));
+    painter.line_segment([pos2(c.x, c.y - r - 1.0), pos2(c.x, c.y - 1.0)], Stroke::new(2.0, color));
+}
+
+pub fn draw_icon_return(painter: &egui::Painter, rect: Rect, color: Color32) {
+    let c = rect.center();
+    let pts = vec![
+        c + vec2(4.5, -4.5),
+        c + vec2(4.5, 1.5),
+        c + vec2(-4.0, 1.5),
+    ];
+    painter.add(Shape::line(pts, Stroke::new(1.6, color)));
+    painter.add(Shape::convex_polygon(
+        vec![c + vec2(-4.0, -2.0), c + vec2(-6.5, 1.5), c + vec2(-4.0, 5.0)],
+        color,
+        Stroke::NONE,
+    ));
+}
+
+pub fn draw_icon_closed_captions(painter: &egui::Painter, rect: Rect, color: Color32) {
+    let box_rect = Rect::from_center_size(rect.center(), vec2(rect.width() * 0.8, rect.height() * 0.58));
+    painter.rect_stroke(box_rect, 3.0, Stroke::new(1.3, color), StrokeKind::Inside);
+    painter.text(box_rect.center(), Align2::CENTER_CENTER, "CC", FontId::proportional(rect.height() * 0.35), color);
+}
+
+pub fn draw_icon_speaker_group(painter: &egui::Painter, rect: Rect, color: Color32) {
+    let c = rect.center();
+    let r1 = Rect::from_min_size(c + vec2(-rect.width() * 0.35, -rect.height() * 0.3), vec2(rect.width() * 0.42, rect.height() * 0.6));
+    painter.rect_stroke(r1, 3.0, Stroke::new(1.2, color), StrokeKind::Inside);
+    painter.circle_stroke(r1.center() + vec2(0.0, 2.0), 3.0, Stroke::new(1.0, color));
+    let r2 = Rect::from_min_size(c + vec2(rect.width() * 0.05, -rect.height() * 0.15), vec2(rect.width() * 0.32, rect.height() * 0.45));
+    painter.rect_stroke(r2, 2.5, Stroke::new(1.2, color), StrokeKind::Inside);
+    painter.circle_stroke(r2.center() + vec2(0.0, 1.5), 2.2, Stroke::new(1.0, color));
 }
