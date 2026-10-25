@@ -24,7 +24,9 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - uses: android-actions/setup-android@v3
+      # setup-android v3 still bootstraps via the removed `sdkmanager tools` package
+      # on newer commandline-tools releases; v4 avoids that legacy bootstrap path.
+      - uses: android-actions/setup-android@v4
 
       - name: Install Android platform, build-tools and NDK
         run: |
