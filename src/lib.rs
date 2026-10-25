@@ -4,6 +4,7 @@ pub mod app;
 pub mod controller;
 pub mod creds;
 pub mod discovery;
+pub mod haptics;
 pub mod icons;
 pub mod keys;
 pub mod pairing;

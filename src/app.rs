@@ -1,6 +1,7 @@
 //! The egui user interface for FryRemote: exact 1:1 match with modern Android TV remote design.
 
 use crate::controller::{Controller, Notify};
+use crate::haptics::{self, HapticStyle};
 use crate::icons::*;
 use crate::keys;
 use crate::state::*;
@@ -104,31 +105,23 @@ fn setup_style(ctx: &egui::Context) {
 
 fn draw_ambient_background(painter: &egui::Painter, rect: Rect) {
     let w = rect.width();
-    let wave1 = Color32::from_rgba_premultiplied(16, 42, 90, 18);
-    let wave2 = Color32::from_rgba_premultiplied(22, 55, 120, 14);
+    let wave_fill = Color32::from_rgb(12, 26, 52);
+    let wave_crest = Color32::from_rgb(24, 52, 102);
 
-    let n = 24;
-    let mut pts1 = Vec::with_capacity(n + 3);
-    pts1.push(pos2(rect.min.x, rect.max.y));
+    let n = 32;
+    let mut pts = Vec::with_capacity(n + 3);
+    let mut crest = Vec::with_capacity(n + 1);
+    pts.push(pos2(rect.min.x, rect.max.y));
     for i in 0..=n {
         let t = i as f32 / n as f32;
         let x = rect.min.x + t * w;
-        let y = rect.max.y - 120.0 + (t * std::f32::consts::PI * 1.6).sin() * 28.0;
-        pts1.push(pos2(x, y));
+        let y = rect.max.y - 72.0 + (t * std::f32::consts::PI * 1.2).sin() * 26.0;
+        pts.push(pos2(x, y));
+        crest.push(pos2(x, y));
     }
-    pts1.push(pos2(rect.max.x, rect.max.y));
-    painter.add(Shape::convex_polygon(pts1, wave1, Stroke::NONE));
-
-    let mut pts2 = Vec::with_capacity(n + 3);
-    pts2.push(pos2(rect.min.x, rect.max.y));
-    for i in 0..=n {
-        let t = i as f32 / n as f32;
-        let x = rect.min.x + t * w;
-        let y = rect.max.y - 65.0 + ((t + 0.25) * std::f32::consts::PI * 1.8).sin() * 18.0;
-        pts2.push(pos2(x, y));
-    }
-    pts2.push(pos2(rect.max.x, rect.max.y));
-    painter.add(Shape::convex_polygon(pts2, wave2, Stroke::NONE));
+    pts.push(pos2(rect.max.x, rect.max.y));
+    painter.add(Shape::convex_polygon(pts, wave_fill, Stroke::NONE));
+    painter.add(Shape::line(crest, Stroke::new(1.0, wave_crest)));
 }
 
 // ---------------------------------------------------------------------------
@@ -255,9 +248,11 @@ impl RemoteApp {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 let (gear_rect, gear_resp) = ui.allocate_exact_size(vec2(28.0, 28.0), Sense::click());
                 let gear_color = if gear_resp.hovered() { TEXT_WHITE } else { ICON_SLATE };
-                let icon_box = Rect::from_center_size(gear_rect.center(), vec2(19.0, 19.0));
+                let icon_size = if gear_resp.is_pointer_button_down_on() { vec2(17.0, 17.0) } else { vec2(19.0, 19.0) };
+                let icon_box = Rect::from_center_size(gear_rect.center(), icon_size);
                 svg_settings(ui, icon_box, gear_color);
                 if gear_resp.clicked() {
+                    haptics::trigger(HapticStyle::Light);
                     self.show_tv_selector = !self.show_tv_selector;
                 }
             });
@@ -279,12 +274,25 @@ impl RemoteApp {
             CARD_BG
         };
 
+        let draw_card_rect = if resp.is_pointer_button_down_on() {
+            rect.shrink(0.8)
+        } else {
+            rect
+        };
+        let card_stroke = if resp.is_pointer_button_down_on() {
+            Stroke::new(1.4, ACCENT)
+        } else if resp.hovered() {
+            Stroke::new(1.0, Color32::from_rgb(45, 68, 108))
+        } else {
+            Stroke::new(1.0, BORDER)
+        };
+
         let painter = ui.painter();
-        painter.rect_filled(rect, 14.0, bg);
-        painter.rect_stroke(rect, 14.0, Stroke::new(1.0, BORDER), StrokeKind::Inside);
+        painter.rect_filled(draw_card_rect, 14.0, bg);
+        painter.rect_stroke(draw_card_rect, 14.0, card_stroke, StrokeKind::Inside);
 
         // TV outline icon in electric blue #3B82F6 from vector SVG
-        let tv_rect = Rect::from_center_size(pos2(rect.min.x + 28.0, rect.center().y), vec2(22.0, 16.0));
+        let tv_rect = Rect::from_center_size(pos2(draw_card_rect.min.x + 28.0, draw_card_rect.center().y), vec2(22.0, 16.0));
         svg_tv(ui, tv_rect, ACCENT);
 
         // Active TV name & subtitle
@@ -296,16 +304,16 @@ impl RemoteApp {
             .or_else(|| self.ctrl.store.tvs.first().map(|t| t.name.clone()))
             .unwrap_or_else(|| "Living Room".to_string());
 
-        let text_x = rect.min.x + 54.0;
+        let text_x = draw_card_rect.min.x + 54.0;
         painter.text(
-            pos2(text_x, rect.center().y - 10.0),
+            pos2(text_x, draw_card_rect.center().y - 10.0),
             Align2::LEFT_CENTER,
             &active_name,
             FontId::proportional(15.5),
             TEXT_WHITE,
         );
         painter.text(
-            pos2(text_x, rect.center().y + 10.0),
+            pos2(text_x, draw_card_rect.center().y + 10.0),
             Align2::LEFT_CENTER,
             "Google TV",
             FontId::proportional(12.0),
@@ -338,7 +346,7 @@ impl RemoteApp {
         let pill_h = 24.0;
         let pill_w = 90.0;
         let pill_rect = Rect::from_center_size(
-            pos2(rect.max.x - 14.0 - pill_w * 0.5, rect.center().y),
+            pos2(draw_card_rect.max.x - 14.0 - pill_w * 0.5, draw_card_rect.center().y),
             vec2(pill_w, pill_h),
         );
         painter.rect_filled(pill_rect, 12.0, bg_color);
@@ -355,6 +363,7 @@ impl RemoteApp {
         );
 
         if resp.clicked() {
+            haptics::trigger(HapticStyle::Light);
             self.show_tv_selector = !self.show_tv_selector;
         }
     }
@@ -564,16 +573,19 @@ impl RemoteApp {
             let knob_c = pos2(knob_x, track_start.y + 1.75);
             painter.circle_filled(knob_c, 4.5, ACCENT);
 
-            // Drag / click volume adjustment
+            // Drag / click volume adjustment with tactile ratchet haptics
             if resp.dragged() || resp.clicked() {
                 if let Some(pos) = ui.input(|i| i.pointer.interact_pos()) {
                     let new_f = ((pos.x - track_start.x) / track_w).clamp(0.0, 1.0);
-                    if new_f > self.sim_volume {
-                        self.ctrl.key(keys::VOLUME_UP);
-                    } else if new_f < self.sim_volume {
-                        self.ctrl.key(keys::VOLUME_DOWN);
+                    if (new_f - self.sim_volume).abs() >= 0.04 {
+                        haptics::trigger(HapticStyle::Tick);
+                        if new_f > self.sim_volume {
+                            self.ctrl.key(keys::VOLUME_UP);
+                        } else if new_f < self.sim_volume {
+                            self.ctrl.key(keys::VOLUME_DOWN);
+                        }
+                        self.sim_volume = new_f;
                     }
-                    self.sim_volume = new_f;
                 }
             }
         });
@@ -636,6 +648,7 @@ impl RemoteApp {
 
         let fire = hold_logic(ui, &resp);
         if fire {
+            haptics::trigger(HapticStyle::Heavy);
             if center_pressed {
                 self.ctrl.key(keys::DPAD_CENTER);
             } else if let Some(dir) = pressed_dir {
@@ -735,17 +748,17 @@ impl RemoteApp {
     fn render_function_row_3(&mut self, ui: &mut Ui, w: f32) {
         let gap = 7.0;
         let btn_w = (w - 2.0 * gap) / 3.0;
-        let h = 34.0;
+        let h = 36.0;
 
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = gap;
-            if custom_button(ui, vec2(btn_w, h), "Prev", BtnIcon::Prev, None, 12.0, true) {
+            if custom_button_stacked(ui, vec2(btn_w, h), "Prev", BtnIcon::Prev, None, 12.0, true) {
                 self.ctrl.key(keys::MEDIA_PREVIOUS);
             }
-            if custom_button(ui, vec2(btn_w, h), "Play/Pause", BtnIcon::PlayPause, None, 12.0, false) {
+            if custom_button_stacked(ui, vec2(btn_w, h), "Play/Pause", BtnIcon::PlayPause, None, 12.0, false) {
                 self.ctrl.key(keys::MEDIA_PLAY_PAUSE);
             }
-            if custom_button(ui, vec2(btn_w, h), "Next", BtnIcon::Next, None, 12.0, true) {
+            if custom_button_stacked(ui, vec2(btn_w, h), "Next", BtnIcon::Next, None, 12.0, true) {
                 self.ctrl.key(keys::MEDIA_NEXT);
             }
         });
@@ -881,23 +894,27 @@ impl RemoteApp {
             TEXT_MUTED,
         );
 
-        // Gesture handling
+        // Gesture handling with tactile tick haptics
         const STEP: f32 = 42.0;
         if resp.dragged() {
             self.touch_acc += resp.drag_delta();
             while self.touch_acc.x > STEP {
+                haptics::trigger(HapticStyle::Tick);
                 self.ctrl.key(keys::DPAD_RIGHT);
                 self.touch_acc.x -= STEP;
             }
             while self.touch_acc.x < -STEP {
+                haptics::trigger(HapticStyle::Tick);
                 self.ctrl.key(keys::DPAD_LEFT);
                 self.touch_acc.x += STEP;
             }
             while self.touch_acc.y > STEP {
+                haptics::trigger(HapticStyle::Tick);
                 self.ctrl.key(keys::DPAD_DOWN);
                 self.touch_acc.y -= STEP;
             }
             while self.touch_acc.y < -STEP {
+                haptics::trigger(HapticStyle::Tick);
                 self.ctrl.key(keys::DPAD_UP);
                 self.touch_acc.y += STEP;
             }
@@ -905,7 +922,15 @@ impl RemoteApp {
             self.touch_acc = Vec2::ZERO;
         }
 
+        // Tactile touch feedback: glowing neon ring under pointer during interaction
+        if let Some(pos) = resp.interact_pointer_pos() {
+            painter.circle_filled(pos, 24.0, Color32::from_rgba_premultiplied(59, 130, 246, 35));
+            painter.circle_filled(pos, 10.0, Color32::from_rgba_premultiplied(56, 189, 248, 80));
+            painter.circle_stroke(pos, 24.0, Stroke::new(1.5, ACCENT));
+        }
+
         if resp.clicked() {
+            haptics::trigger(HapticStyle::Medium);
             self.ctrl.key(keys::DPAD_CENTER);
         }
 
@@ -937,6 +962,53 @@ impl RemoteApp {
             self.show_tv_selector = true;
             self.tab = Tab::Remote;
         }
+
+        ui.add_space(14.0);
+
+        // Feedback & Vibration Settings Card
+        egui::Frame::new()
+            .fill(CARD_BG)
+            .corner_radius(14)
+            .stroke(Stroke::new(1.0, BORDER))
+            .inner_margin(12)
+            .show(ui, |ui| {
+                ui.set_width(w - 24.0);
+                ui.label(RichText::new("Feedback & Vibration").strong().color(TEXT_WHITE).size(15.0));
+                ui.label(RichText::new("Calibrated tactile haptics & native system click sounds").color(TEXT_MUTED).size(11.5));
+                ui.add_space(8.0);
+
+                let btn_w = (w - 24.0 - 24.0 - 8.0) / 2.0;
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = 8.0;
+                    let vib_active = haptics::is_enabled();
+                    let vib_txt = if vib_active { "Vibration: ON" } else { "Vibration: OFF" };
+                    let vib_bg = if vib_active { Some(Color32::from_rgb(18, 52, 40)) } else { None };
+                    if custom_button(ui, vec2(btn_w, 36.0), vib_txt, BtnIcon::None, vib_bg, 10.0, false) {
+                        let next = !vib_active;
+                        haptics::set_enabled(next);
+                        if next {
+                            haptics::trigger(HapticStyle::Heavy);
+                        }
+                    }
+
+                    let snd_active = haptics::is_sound_enabled();
+                    let snd_txt = if snd_active { "Sound: ON" } else { "Sound: OFF" };
+                    let snd_bg = if snd_active { Some(Color32::from_rgb(18, 52, 40)) } else { None };
+                    if custom_button(ui, vec2(btn_w, 36.0), snd_txt, BtnIcon::None, snd_bg, 10.0, false) {
+                        let next = !snd_active;
+                        haptics::set_sound_enabled(next);
+                        if next {
+                            haptics::trigger(HapticStyle::Light);
+                        }
+                    }
+                });
+
+                ui.add_space(8.0);
+                let test_w = w - 48.0;
+                if custom_button(ui, vec2(test_w, 36.0), "⚡ Test Tactile Vibration", BtnIcon::None, Some(Color32::from_rgb(26, 42, 68)), 10.0, false) {
+                    haptics::trigger(HapticStyle::Heavy);
+                }
+            });
 
         ui.add_space(14.0);
 
@@ -1145,19 +1217,34 @@ fn custom_button(
         resp.clicked()
     };
 
-    let bg = if resp.is_pointer_button_down_on() {
-        custom_fill.unwrap_or(BTN_ACTIVE)
+    let is_down = resp.is_pointer_button_down_on();
+    let bg = if is_down {
+        custom_fill.unwrap_or(Color32::from_rgb(32, 52, 86))
     } else if resp.hovered() {
         custom_fill.unwrap_or(BTN_HOVER)
     } else {
         custom_fill.unwrap_or(BTN_BG)
     };
 
-    let painter = ui.painter();
-    painter.rect_filled(rect, corner_radius, bg);
-    painter.rect_stroke(rect, corner_radius, Stroke::new(1.0, BORDER), StrokeKind::Inside);
+    let draw_rect = if is_down {
+        rect.shrink(1.2)
+    } else {
+        rect
+    };
 
-    let c = rect.center();
+    let stroke = if is_down {
+        Stroke::new(1.8, Color32::from_rgb(56, 189, 248))
+    } else if resp.hovered() {
+        Stroke::new(1.0, Color32::from_rgb(45, 68, 108))
+    } else {
+        Stroke::new(1.0, BORDER)
+    };
+
+    let painter = ui.painter();
+    painter.rect_filled(draw_rect, corner_radius, bg);
+    painter.rect_stroke(draw_rect, corner_radius, stroke, StrokeKind::Inside);
+
+    let c = draw_rect.center();
     let text_color = if custom_fill.is_some() {
         TEXT_WHITE
     } else {
@@ -1204,6 +1291,82 @@ fn custom_button(
 
         let text_p = pos2(start_x + icon_w + gap, c.y);
         painter.text(text_p, Align2::LEFT_CENTER, label, font_id, text_color);
+    }
+
+    if fire {
+        let style = match icon {
+            BtnIcon::Power => HapticStyle::Heavy,
+            BtnIcon::None => HapticStyle::Light,
+            _ => HapticStyle::Medium,
+        };
+        haptics::trigger(style);
+    }
+
+    fire
+}
+
+fn custom_button_stacked(
+    ui: &mut Ui,
+    size: Vec2,
+    label: &str,
+    icon: BtnIcon,
+    custom_fill: Option<Color32>,
+    corner_radius: f32,
+    repeat: bool,
+) -> bool {
+    let (rect, resp) = ui.allocate_exact_size(size, Sense::click());
+    let fire = if repeat {
+        hold_logic(ui, &resp)
+    } else {
+        resp.clicked()
+    };
+
+    let is_down = resp.is_pointer_button_down_on();
+    let bg = if is_down {
+        custom_fill.unwrap_or(Color32::from_rgb(32, 52, 86))
+    } else if resp.hovered() {
+        custom_fill.unwrap_or(BTN_HOVER)
+    } else {
+        custom_fill.unwrap_or(BTN_BG)
+    };
+
+    let draw_rect = if is_down {
+        rect.shrink(1.2)
+    } else {
+        rect
+    };
+
+    let stroke = if is_down {
+        Stroke::new(1.8, Color32::from_rgb(56, 189, 248))
+    } else if resp.hovered() {
+        Stroke::new(1.0, Color32::from_rgb(45, 68, 108))
+    } else {
+        Stroke::new(1.0, BORDER)
+    };
+
+    let painter = ui.painter();
+    painter.rect_filled(draw_rect, corner_radius, bg);
+    painter.rect_stroke(draw_rect, corner_radius, stroke, StrokeKind::Inside);
+
+    let c = draw_rect.center();
+    let text_color = if custom_fill.is_some() {
+        TEXT_WHITE
+    } else {
+        Color32::from_rgb(226, 232, 240)
+    };
+
+    let icon_rect = Rect::from_center_size(pos2(c.x, c.y - 7.0), vec2(16.0, 13.0));
+    render_btn_svg(ui, icon_rect, icon, text_color);
+
+    let font_id = FontId::proportional(10.0);
+    painter.text(pos2(c.x, c.y + 7.5), Align2::CENTER_CENTER, label, font_id, text_color);
+
+    if fire {
+        let style = match icon {
+            BtnIcon::PlayPause => HapticStyle::Heavy,
+            _ => HapticStyle::Medium,
+        };
+        haptics::trigger(style);
     }
 
     fire
@@ -1271,14 +1434,16 @@ fn bottom_nav_bar(ui: &mut Ui, current_tab: &mut Tab, w: f32) {
         );
         let resp = ui.interact(item_rect, ui.scope_id().with(i), Sense::click());
         if resp.clicked() {
+            haptics::trigger(HapticStyle::Light);
             *current_tab = tab;
         }
 
         let is_active = *current_tab == tab;
         let color = if is_active { ACCENT } else { TEXT_MUTED };
 
-        // Vector SVG Nav Icon
-        let icon_rect = Rect::from_center_size(pos2(item_rect.center().x, item_rect.min.y + 15.0), vec2(16.0, 16.0));
+        // Vector SVG Nav Icon with subtle press compression
+        let icon_size = if resp.is_pointer_button_down_on() { vec2(14.0, 14.0) } else { vec2(16.0, 16.0) };
+        let icon_rect = Rect::from_center_size(pos2(item_rect.center().x, item_rect.min.y + 15.0), icon_size);
         match tab {
             Tab::Remote => svg_nav_remote(ui, icon_rect, color),
             Tab::Apps => svg_nav_apps(ui, icon_rect, color),

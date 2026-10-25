@@ -324,16 +324,20 @@ pub fn draw_clover_dpad(
     }
     painter.add(Shape::mesh(mesh));
 
-    // 2. Electric neon blue glowing outline (multi-pass halo)
-    let glow_outer = Color32::from_rgba_premultiplied(59, 130, 246, 25);
-    let glow_mid = Color32::from_rgba_premultiplied(59, 130, 246, 70);
-    let glow_inner = Color32::from_rgba_premultiplied(96, 165, 250, 140);
-    let stroke_color = Color32::from_rgb(59, 130, 246); // #3B82F6
+    // 2. Electric neon blue glowing outline (multi-pass lush aura)
+    let glow_wide = Color32::from_rgba_premultiplied(59, 130, 246, 20);
+    let glow_outer = Color32::from_rgba_premultiplied(56, 189, 248, 45);
+    let glow_mid = Color32::from_rgba_premultiplied(59, 130, 246, 95);
+    let glow_inner = Color32::from_rgba_premultiplied(96, 165, 250, 160);
+    let glow_core = Color32::from_rgba_premultiplied(191, 219, 254, 220);
+    let stroke_color = Color32::from_rgb(56, 189, 248); // #38BDF8 bright neon cyan
 
+    painter.add(Shape::closed_line(points.clone(), Stroke::new(10.0, glow_wide)));
     painter.add(Shape::closed_line(points.clone(), Stroke::new(6.5, glow_outer)));
-    painter.add(Shape::closed_line(points.clone(), Stroke::new(4.0, glow_mid)));
-    painter.add(Shape::closed_line(points.clone(), Stroke::new(2.2, glow_inner)));
-    painter.add(Shape::closed_line(points, Stroke::new(1.8, stroke_color)));
+    painter.add(Shape::closed_line(points.clone(), Stroke::new(4.2, glow_mid)));
+    painter.add(Shape::closed_line(points.clone(), Stroke::new(2.6, glow_inner)));
+    painter.add(Shape::closed_line(points.clone(), Stroke::new(1.6, glow_core)));
+    painter.add(Shape::closed_line(points, Stroke::new(1.4, stroke_color)));
 
     // 3. Directional circular button pads
     let dirs = [
@@ -357,8 +361,15 @@ pub fn draw_clover_dpad(
             Color32::from_rgb(18, 28, 48)
         };
 
-        ui.painter().circle_filled(lobe_c, pad_radius, pad_bg);
-        ui.painter().circle_stroke(lobe_c, pad_radius, Stroke::new(1.0, Color32::from_rgb(28, 44, 72)));
+        let draw_r = if is_pressed { pad_radius - 1.5 } else { pad_radius };
+        let stroke = if is_pressed {
+            Stroke::new(2.0, Color32::from_rgb(56, 189, 248)) // Neon cyan press border
+        } else {
+            Stroke::new(1.0, Color32::from_rgb(30, 48, 78))
+        };
+
+        ui.painter().circle_filled(lobe_c, draw_r, pad_bg);
+        ui.painter().circle_stroke(lobe_c, draw_r, stroke);
 
         let arrow_color = if is_pressed {
             Color32::from_rgb(96, 165, 250)
@@ -366,7 +377,7 @@ pub fn draw_clover_dpad(
             Color32::from_rgb(248, 250, 252)
         };
 
-        let arrow_rect = Rect::from_center_size(lobe_c, vec2(15.0, 15.0));
+        let arrow_rect = Rect::from_center_size(lobe_c, vec2(17.0, 17.0));
         match dir {
             Dir::Up => render_svg(ui, arrow_rect, egui::include_image!("../assets/icons/remote/arrow_up.svg"), Some(arrow_color)),
             Dir::Down => render_svg(ui, arrow_rect, egui::include_image!("../assets/icons/remote/arrow_down.svg"), Some(arrow_color)),
@@ -385,18 +396,25 @@ pub fn draw_clover_dpad(
         Color32::from_rgb(59, 130, 246) // #3B82F6
     };
 
-    ui.painter().circle_filled(center, center_r, ok_bg);
-    ui.painter().circle_stroke(center, center_r, Stroke::new(1.5, Color32::from_rgb(147, 197, 253)));
+    let draw_center_r = if center_pressed { center_r - 1.5 } else { center_r };
+    let ok_stroke = if center_pressed {
+        Stroke::new(2.5, Color32::from_rgb(224, 242, 254))
+    } else {
+        Stroke::new(1.8, Color32::from_rgb(147, 197, 253))
+    };
+
+    ui.painter().circle_filled(center, draw_center_r, ok_bg);
+    ui.painter().circle_stroke(center, draw_center_r, ok_stroke);
 
     // TV icon from SVG inside center button
-    let tv_rect = Rect::from_center_size(center + vec2(0.0, -7.5), vec2(18.0, 13.0));
+    let tv_rect = Rect::from_center_size(center + vec2(0.0, -8.0), vec2(21.0, 15.0));
     render_svg(ui, tv_rect, egui::include_image!("../assets/icons/remote/dpad_tv.svg"), Some(Color32::WHITE));
 
     ui.painter().text(
         center + vec2(0.0, 9.5),
         Align2::CENTER_CENTER,
         "OK",
-        FontId::proportional(12.0),
+        FontId::proportional(12.5),
         Color32::WHITE,
     );
 }

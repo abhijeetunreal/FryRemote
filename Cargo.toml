@@ -78,3 +78,5 @@ name = "android.permission.ACCESS_WIFI_STATE"
 name = "android.permission.ACCESS_NETWORK_STATE"
 [[package.metadata.android.uses_permission]]
 name = "android.permission.CHANGE_WIFI_MULTICAST_STATE"
+[[package.metadata.android.uses_permission]]
+name = "android.permission.VIBRATE"
