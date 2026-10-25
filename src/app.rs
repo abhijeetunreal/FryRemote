@@ -128,7 +128,7 @@ impl RemoteApp {
             ui.label(RichText::new("FryRemote").size(24.0).strong());
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.horizontal(|ui| {
-                    ui.add(egui::CircleShape::filled(ACCENT, 7.0, pos2(0.0, 0.0)));
+                    ui.label(RichText::new("●").color(ACCENT).size(12.0));
                     ui.label(RichText::new("Connected").color(MUTED).small());
                 });
             });
@@ -322,7 +322,7 @@ impl RemoteApp {
                     ConnStatus::Idle => (MUTED, "Idle"),
                 };
                 ui.horizontal(|ui| {
-                    ui.add(egui::CircleShape::filled(color, 6.0, pos2(0.0, 0.0)));
+                    ui.label(RichText::new("●").color(color).size(11.0));
                     ui.label(RichText::new(text).color(color).small());
                 });
             });
