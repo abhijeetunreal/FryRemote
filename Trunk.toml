@@ -2,6 +2,10 @@
 target = "index.html"
 dist = "dist"
 
+[tools]
+wasm_opt = "off"
+
 [serve]
 port = 8080
 open = false
+
