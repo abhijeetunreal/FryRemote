@@ -1,17 +1,25 @@
 //! Glue between the UI and the async networking code.
 
-use crate::creds::Creds;
-use crate::discovery;
-use crate::pairing::{CodeError, PairingSession};
-use crate::remote::{self, RemoteHandle};
 use crate::state::*;
 use crate::store::Store;
-use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use tokio::sync::mpsc;
 
 pub type Notify = Arc<dyn Fn() + Send + Sync>;
 
+#[cfg(not(target_arch = "wasm32"))]
+use crate::creds::Creds;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::discovery;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::pairing::{CodeError, PairingSession};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::remote::{self, RemoteHandle};
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::PathBuf;
+#[cfg(not(target_arch = "wasm32"))]
+use tokio::sync::mpsc;
+
+#[cfg(not(target_arch = "wasm32"))]
 pub struct Controller {
     rt: tokio::runtime::Runtime,
     pub shared: Arc<Mutex<Shared>>,
@@ -24,6 +32,7 @@ pub struct Controller {
     notify: Notify,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl Controller {
     pub fn new(data_dir: PathBuf, notify: Notify) -> Self {
         let rt = tokio::runtime::Builder::new_multi_thread()
@@ -181,7 +190,146 @@ impl Controller {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn set_pairing(shared: &Arc<Mutex<Shared>>, notify: &Notify, p: PairingUi) {
     shared.lock().unwrap().pairing = p;
     notify();
+}
+
+#[cfg(target_arch = "wasm32")]
+pub struct Controller {
+    pub shared: Arc<Mutex<Shared>>,
+    pub store: Store,
+    pub active: Option<Tv>,
+    notify: Notify,
+}
+
+#[cfg(target_arch = "wasm32")]
+impl Controller {
+    pub fn new_web(notify: Notify) -> Self {
+        let mut shared = Shared::default();
+        shared.status = ConnStatus::Connected;
+        shared.powered = Some(true);
+        shared.volume = Some((35, 100, false));
+        let store = Store::demo();
+        let active = store.tvs.first().cloned();
+
+        Self {
+            shared: Arc::new(Mutex::new(shared)),
+            store,
+            active,
+            notify,
+        }
+    }
+
+    pub fn creds_ready(&self) -> bool {
+        true
+    }
+
+    pub fn creds_error(&self) -> Option<String> {
+        None
+    }
+
+    pub fn poll(&mut self) {}
+
+    pub fn snapshot(&self) -> Shared {
+        self.shared.lock().unwrap().clone()
+    }
+
+    pub fn scan(&self) {
+        let (shared, notify) = (self.shared.clone(), self.notify.clone());
+        shared.lock().unwrap().scanning = true;
+        notify();
+        let mut s = shared.lock().unwrap();
+        s.scanning = false;
+        s.discovered = vec![
+            Tv { name: "Living Room Google TV (Demo)".into(), host: "192.168.1.100".into(), paired: true },
+            Tv { name: "Bedroom Android TV (Demo)".into(), host: "192.168.1.102".into(), paired: false },
+        ];
+        notify();
+    }
+
+    pub fn start_pairing(&mut self, _tv: &Tv) {
+        let mut s = self.shared.lock().unwrap();
+        s.pairing = PairingUi::WaitingForCode;
+        (self.notify)();
+    }
+
+    pub fn submit_code(&self, _code: &str) {
+        let mut s = self.shared.lock().unwrap();
+        s.pairing = PairingUi::Done;
+        (self.notify)();
+    }
+
+    pub fn cancel_pairing(&mut self) {
+        self.shared.lock().unwrap().pairing = PairingUi::None;
+        (self.notify)();
+    }
+
+    pub fn connect(&mut self, tv: &Tv) {
+        self.active = Some(tv.clone());
+        let mut s = self.shared.lock().unwrap();
+        s.status = ConnStatus::Connected;
+        s.powered = Some(true);
+        s.volume = Some((35, 100, false));
+        (self.notify)();
+    }
+
+    pub fn disconnect(&mut self) {
+        self.active = None;
+        let mut s = self.shared.lock().unwrap();
+        s.status = ConnStatus::Idle;
+        (self.notify)();
+    }
+
+    pub fn key(&self, code: i32) {
+        let mut s = self.shared.lock().unwrap();
+        match code {
+            crate::keys::POWER => {
+                let cur = s.powered.unwrap_or(true);
+                s.powered = Some(!cur);
+            }
+            crate::keys::VOLUME_UP => {
+                if let Some((level, max, muted)) = &mut s.volume {
+                    *level = (*level + 2).min(*max);
+                    *muted = false;
+                }
+            }
+            crate::keys::VOLUME_DOWN => {
+                if let Some((level, _max, muted)) = &mut s.volume {
+                    *level = (*level - 2).max(0);
+                    *muted = false;
+                }
+            }
+            crate::keys::VOLUME_MUTE => {
+                if let Some((_level, _max, muted)) = &mut s.volume {
+                    *muted = !*muted;
+                }
+            }
+            _ => {}
+        }
+        (self.notify)();
+    }
+
+
+    pub fn launch(&self, link: &str) {
+        let app_name = if link.contains("youtube") {
+            "YouTube"
+        } else if link.contains("netflix") {
+            "Netflix"
+        } else if link.contains("prime") {
+            "Prime Video"
+        } else if link.contains("disney") {
+            "Disney+"
+        } else if link.contains("hotstar") {
+            "Hotstar"
+        } else if link.contains("spotify") {
+            "Spotify"
+        } else {
+            "App"
+        };
+        let mut s = self.shared.lock().unwrap();
+        s.current_app = Some(app_name.to_string());
+        (self.notify)();
+    }
 }

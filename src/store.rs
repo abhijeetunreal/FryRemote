@@ -18,11 +18,26 @@ impl Store {
         Self { path, tvs }
     }
 
+    pub fn demo() -> Self {
+        Self {
+            path: PathBuf::new(),
+            tvs: vec![Tv {
+                name: "Living Room Google TV (Demo)".into(),
+                host: "192.168.1.100".into(),
+                paired: true,
+            }],
+        }
+    }
+
     pub fn save(&self) {
+        if self.path.as_os_str().is_empty() {
+            return;
+        }
         if let Ok(b) = serde_json::to_vec_pretty(&self.tvs) {
             let _ = std::fs::write(&self.path, b);
         }
     }
+
 
     pub fn upsert(&mut self, tv: Tv) {
         match self.tvs.iter_mut().find(|t| t.host == tv.host) {

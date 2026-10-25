@@ -6,8 +6,10 @@ use crate::icons::*;
 use crate::keys;
 use crate::state::*;
 use eframe::egui::{self, pos2, vec2, Align2, Color32, FontId, Rect, RichText, Sense, Shape, Stroke, StrokeKind, Ui, Vec2};
+#[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
 use std::sync::Arc;
+
 
 // ---------------------------------------------------------------------------
 // Theme Colors (matched to the design mock)
@@ -58,6 +60,7 @@ pub struct RemoteApp {
 }
 
 impl RemoteApp {
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn new(cc: &eframe::CreationContext<'_>, data_dir: PathBuf) -> Self {
         let ctx = cc.egui_ctx.clone();
         let notify: Notify = Arc::new(move || ctx.request_repaint());
@@ -78,6 +81,32 @@ impl RemoteApp {
 
         // If we have saved TVs, auto-connect to the first paired TV
         if let Some(tv) = app.ctrl.store.tvs.iter().find(|t| t.paired).cloned() {
+            app.ctrl.connect(&tv);
+        }
+
+        app
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn new_web(cc: &eframe::CreationContext<'_>) -> Self {
+        let ctx = cc.egui_ctx.clone();
+        let notify: Notify = Arc::new(move || ctx.request_repaint());
+        setup_style(&cc.egui_ctx);
+        egui_extras::install_image_loaders(&cc.egui_ctx);
+        let mut app = Self {
+            ctrl: Controller::new_web(notify),
+            screen: Screen::Remote,
+            tab: Tab::Remote,
+            show_tv_selector: false,
+            ip_input: String::new(),
+            code_input: String::new(),
+            show_ip_pad: false,
+            touch_acc: Vec2::ZERO,
+            auto_scanned: false,
+            sim_volume: 0.35,
+        };
+
+        if let Some(tv) = app.ctrl.store.tvs.first().cloned() {
             app.ctrl.connect(&tv);
         }
 

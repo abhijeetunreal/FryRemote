@@ -2,18 +2,26 @@
 
 pub mod app;
 pub mod controller;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod creds;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod discovery;
 pub mod haptics;
 pub mod icons;
 pub mod keys;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod pairing;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod proto;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod remote;
 pub mod state;
 pub mod store;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod tls;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod wire;
+
 
 #[cfg(target_os = "android")]
 mod android;
@@ -41,9 +49,10 @@ pub fn android_main(app: android_activity::AndroidApp) {
 }
 
 /// Desktop entry point (handy for trying the UI on a computer).
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 pub fn run_desktop() -> eframe::Result {
     let dir = std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
         .map(std::path::PathBuf::from)
         .unwrap_or_else(std::env::temp_dir)
         .join(".tvremote");
@@ -57,3 +66,4 @@ pub fn run_desktop() -> eframe::Result {
         Box::new(move |cc| Ok(Box::new(app::RemoteApp::new(cc, dir)))),
     )
 }
+
