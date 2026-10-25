@@ -3,15 +3,16 @@ name: Release Desktop
 on:
   push:
     tags:
-      - "v*"
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v*.*.*'
   release:
     types: [published]
   workflow_dispatch:
     inputs:
       tag_name:
-        description: "Release Tag (e.g. v0.1.0). When set, creates or updates the GitHub Release."
+        description: "Release Tag (e.g. v0.2.0). When set, creates or updates the GitHub Release."
         required: false
-        default: "v0.1.0"
+        default: "v0.2.0"
         type: string
       draft:
         description: "Create as a draft release"
@@ -47,24 +48,23 @@ jobs:
           cargo build --release --target aarch64-apple-darwin --bin tvremote-desktop
           cargo build --release --target x86_64-apple-darwin --bin tvremote-desktop
 
-      - name: Package Universal Binary & App
+      - name: Package Universal Binary & DMG
         run: |
           mkdir -p package/FryRemote.app/Contents/MacOS
           mkdir -p package/FryRemote.app/Contents/Resources
-          lipo -create -output package/FryRemote target/aarch64-apple-darwin/release/tvremote-desktop target/x86_64-apple-darwin/release/tvremote-desktop
-          chmod +x package/FryRemote
-          cp package/FryRemote package/FryRemote.app/Contents/MacOS/FryRemote
+          mkdir -p dist
+          lipo -create -output dist/FryRemote-macos-universal target/aarch64-apple-darwin/release/tvremote-desktop target/x86_64-apple-darwin/release/tvremote-desktop
+          chmod +x dist/FryRemote-macos-universal
+          cp dist/FryRemote-macos-universal package/FryRemote.app/Contents/MacOS/FryRemote
           if [ -d "assets" ]; then
             cp -r assets package/FryRemote.app/Contents/Resources/ 2>/dev/null || true
           fi
-          cd package
-          zip -r ../FryRemote-macos-universal.zip FryRemote FryRemote.app
-          cd ..
+          hdiutil create -volname "FryRemote" -srcfolder package/FryRemote.app -ov -format UDZO dist/FryRemote-macos-universal.dmg
 
       - uses: actions/upload-artifact@v4
         with:
           name: FryRemote-macos-universal
-          path: FryRemote-macos-universal.zip
+          path: dist/*
           if-no-files-found: error
 
   build-linux:
@@ -87,18 +87,16 @@ jobs:
       - name: Build Linux release
         run: cargo build --release --bin tvremote-desktop
 
-      - name: Package Linux archive
+      - name: Package Linux executable file
         run: |
-          mkdir -p package
-          cp target/release/tvremote-desktop package/FryRemote
-          chmod +x package/FryRemote
-          cp README.md package/ 2>/dev/null || true
-          tar -czvf FryRemote-linux-x86_64.tar.gz -C package FryRemote README.md
+          mkdir -p dist
+          cp target/release/tvremote-desktop dist/FryRemote-linux-x86_64
+          chmod +x dist/FryRemote-linux-x86_64
 
       - uses: actions/upload-artifact@v4
         with:
           name: FryRemote-linux-x86_64
-          path: FryRemote-linux-x86_64.tar.gz
+          path: dist/FryRemote-linux-x86_64
           if-no-files-found: error
 
   build-windows:
@@ -115,25 +113,23 @@ jobs:
       - name: Build Windows release
         run: cargo build --release --bin tvremote-desktop
 
-      - name: Package Windows archive
+      - name: Package Windows executable file
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path package
-          Copy-Item target/release/tvremote-desktop.exe package/FryRemote.exe
-          if (Test-Path README.md) { Copy-Item README.md package/ }
-          Compress-Archive -Path package/* -DestinationPath FryRemote-windows-x86_64.zip
+          New-Item -ItemType Directory -Force -Path dist
+          Copy-Item target/release/tvremote-desktop.exe dist/FryRemote-windows-x86_64.exe
 
       - uses: actions/upload-artifact@v4
         with:
           name: FryRemote-windows-x86_64
-          path: FryRemote-windows-x86_64.zip
+          path: dist/FryRemote-windows-x86_64.exe
           if-no-files-found: error
 
   publish:
     name: Publish Release Assets
     needs: [build-mac, build-linux, build-windows]
     runs-on: ubuntu-latest
-    if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.tag_name != '')
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.tag_name != '')
     steps:
       - uses: actions/checkout@v4
 
@@ -142,7 +138,7 @@ jobs:
           path: release-artifacts
           merge-multiple: true
 
-      - name: Publish desktop archives to GitHub release
+      - name: Publish desktop files to GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag_name || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || '' }}
@@ -153,4 +149,3 @@ jobs:
           make_latest: true
           draft: ${{ inputs.draft || false }}
           prerelease: ${{ inputs.prerelease || false }}
-

@@ -32,10 +32,8 @@ Voice search is not available: Google does not expose it to third-party clients.
 
 1. Create a free GitHub repository and upload this whole folder (keep the
    `.github` folder).
-2. Open the **Actions** tab, choose **Build APK**, press **Run workflow**
-   (it also runs on every push).
-3. After a few minutes download the **FryRemote-apk** artifact, unzip it and
-   copy `FryRemote.apk` to your phone.
+2. Push a release tag matching `vX.X.X` (e.g. `v0.2.0`) or run manually from the **Actions** tab.
+3. Download the standalone `FryRemote.apk` directly from GitHub Releases (no unzipping needed) and install it on your phone.
 4. On the phone open the file and allow *Install unknown apps* when asked.
 
 To be able to install future builds *over* the old one, add repository secrets
