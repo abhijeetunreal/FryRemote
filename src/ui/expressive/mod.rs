@@ -30,6 +30,9 @@ pub fn render_expressive_ui(
     let total_rect = ui.max_rect();
     let is_desktop_wide = total_rect.width() > 460.0;
 
+    let total_w = total_rect.width();
+    let total_h = total_rect.height();
+
     // Draw dark presentation background if in wide window, or theme background if compact
     if is_desktop_wide {
         ui.painter().rect_filled(total_rect, 0.0, Color32::from_rgb(7, 9, 12));
@@ -37,9 +40,13 @@ pub fn render_expressive_ui(
         ui.painter().rect_filled(total_rect, 0.0, palette.bg);
     }
 
-    let max_card_w = 410.0f32;
-    let content_w = max_card_w.min(total_rect.width() - 16.0).max(280.0);
-    let pad_x = ((total_rect.width() - content_w) * 0.5).max(0.0);
+    let content_w = if is_desktop_wide {
+        (total_w * 0.40).clamp(380.0, 480.0)
+    } else {
+        let margin_x = if total_w < 380.0 { 10.0 } else { 14.0 };
+        (total_w - 2.0 * margin_x).clamp(280.0, 430.0)
+    };
+    let pad_x = ((total_w - content_w) * 0.5).max(0.0);
 
     // Top Desktop Presentation Bar (Theme circles, Mode Toggle, UX Notes)
     if is_desktop_wide {
@@ -68,16 +75,17 @@ pub fn render_expressive_ui(
                 }
 
                 // Mode switch button
+                let next_mode = ui_mode.next();
                 if ui
                     .button(
-                        eframe::egui::RichText::new("🛠️ Advanced Mode")
+                        eframe::egui::RichText::new(format!("Mode: {}", next_mode.name()))
                             .size(11.0)
                             .color(palette.primary),
                     )
                     .clicked()
                 {
                     haptics::trigger(HapticStyle::Heavy);
-                    *ui_mode = UiMode::Advanced;
+                    *ui_mode = next_mode;
                 }
 
                 // Theme selector dots
@@ -111,7 +119,7 @@ pub fn render_expressive_ui(
     // Phone Container Dimensions
     let (_frame_rect, container_rect) = if is_desktop_wide {
         let frame_top = total_rect.min.y + 44.0;
-        let frame_h = (total_rect.height() - 54.0).min(840.0);
+        let frame_h = (total_h - 54.0).min(920.0);
         let f_rect = Rect::from_min_size(pos2(pad_x, frame_top), vec2(content_w, frame_h));
         ui.painter().rect_filled(f_rect, 36.0, palette.bg);
         ui.painter().rect_stroke(
@@ -123,30 +131,34 @@ pub fn render_expressive_ui(
         let inner = f_rect.shrink2(vec2(8.0, 10.0));
         (f_rect, inner)
     } else {
+        let margin_y = if total_h < 700.0 { 6.0 } else { 8.0 };
         let c_rect = Rect::from_min_size(
-            pos2(pad_x, total_rect.min.y + 8.0),
-            vec2(content_w, total_rect.height() - 16.0),
+            pos2(pad_x, total_rect.min.y + margin_y),
+            vec2(content_w, total_h - 2.0 * margin_y),
         );
         (total_rect, c_rect)
     };
 
     let inner_w = container_rect.width();
+    let container_h = container_rect.height();
+
+    let header_h = (container_h * 0.052).clamp(36.0, 46.0);
+    let np_h = (container_h * 0.068).clamp(42.0, 58.0);
+    let nav_bar_h = (container_h * 0.066).clamp(46.0, 58.0);
+    let gap_section = (container_h * 0.010).clamp(4.0, 8.0);
 
     // 1. Top Unified Header (Pinned to top of container)
-    let header_h = 44.0;
     let header_rect = Rect::from_min_size(container_rect.min, vec2(inner_w, header_h));
     let mut header_ui = ui.new_child(egui::UiBuilder::new().max_rect(header_rect));
     header::render_expressive_header(&mut header_ui, palette, state, ctrl, snap, theme, ui_mode, now);
 
     // 2. Contextual Dynamic Now Playing Bar (Pinned below header)
-    let np_top = header_rect.max.y + 8.0;
-    let np_h = 58.0;
+    let np_top = header_rect.max.y + gap_section;
     let np_rect = Rect::from_min_size(pos2(container_rect.min.x, np_top), vec2(inner_w, np_h));
     let mut np_ui = ui.new_child(egui::UiBuilder::new().max_rect(np_rect));
     now_playing::render_now_playing_bar(&mut np_ui, palette, state, ctrl, snap, now);
 
     // 3. Material 3 Expressive Bottom Navigation Bar (PINNED AT THE VERY BOTTOM OF CONTAINER)
-    let nav_bar_h = 56.0;
     let nav_bar_rect = Rect::from_min_size(
         pos2(container_rect.min.x, container_rect.max.y - nav_bar_h),
         vec2(inner_w, nav_bar_h),
@@ -155,11 +167,12 @@ pub fn render_expressive_ui(
     render_bottom_nav(&mut nav_ui, palette, state, ui_mode, now);
 
     // 4. Viewport (Sits in the space between Now Playing and Bottom Nav)
-    let vp_top = np_rect.max.y + 8.0;
-    let vp_bottom = nav_bar_rect.min.y - 8.0;
+    let vp_top = np_rect.max.y + gap_section;
+    let vp_bottom = nav_bar_rect.min.y - gap_section;
+    let vp_h = (vp_bottom - vp_top).max(200.0);
     let vp_rect = Rect::from_min_max(
         pos2(container_rect.min.x, vp_top),
-        pos2(container_rect.max.x, vp_bottom.max(vp_top + 100.0)),
+        pos2(container_rect.max.x, vp_bottom),
     );
 
     let mut vp_ui = ui.new_child(egui::UiBuilder::new().max_rect(vp_rect));
@@ -169,7 +182,7 @@ pub fn render_expressive_ui(
         .show(&mut vp_ui, |ui| {
             match state.tab {
                 ActiveTab::Remote => {
-                    remote_tab::render_expressive_remote_tab(ui, palette, state, ctrl, snap, now);
+                    remote_tab::render_expressive_remote_tab(ui, palette, state, ctrl, snap, vp_h, now);
                 }
                 ActiveTab::Apps => {
                     apps_tab::render_expressive_apps_tab(ui, palette, state, ctrl, now);
@@ -192,7 +205,7 @@ fn render_bottom_nav(
     now: f64,
 ) {
     let avail_w = ui.available_width();
-    let bar_h = 56.0;
+    let bar_h = ui.available_height().min(58.0).max(44.0);
 
     let (nav_rect, _) = ui.allocate_exact_size(vec2(avail_w, bar_h), Sense::hover());
     let painter = ui.painter();
@@ -233,9 +246,17 @@ fn render_bottom_nav(
             palette.text_muted
         };
 
+        let font_id = FontId::proportional((bar_h * 0.21).clamp(10.0, 12.0));
+        let text_layout = painter.layout_no_wrap(label.to_string(), font_id.clone(), fg);
+        let text_w = text_layout.size().x;
+        let icon_dim = (bar_h * 0.32).clamp(14.0, 18.0);
+        let gap = 4.0;
+        let total_w = icon_dim + gap + text_w;
+        let start_x = item_rect.center().x - total_w * 0.5;
+
         let icon_box = Rect::from_center_size(
-            pos2(item_rect.center().x - 14.0, item_rect.center().y),
-            vec2(16.0, 16.0),
+            pos2(start_x + icon_dim * 0.5, item_rect.center().y),
+            vec2(icon_dim, icon_dim),
         );
 
         match icon_type {
@@ -247,10 +268,10 @@ fn render_bottom_nav(
         }
 
         painter.text(
-            pos2(item_rect.center().x + 5.0, item_rect.center().y),
+            pos2(start_x + icon_dim + gap, item_rect.center().y),
             Align2::LEFT_CENTER,
             label,
-            FontId::proportional(11.0),
+            font_id,
             fg,
         );
 
@@ -271,7 +292,7 @@ fn render_bottom_nav(
                 "Advanced" => {
                     haptics::trigger(HapticStyle::Heavy);
                     *ui_mode = UiMode::Advanced;
-                    state.send_command_feedback("Advanced Mode Activated", now);
+                    state.send_command_feedback("Layout: Advanced", now);
                 }
                 _ => {}
             }

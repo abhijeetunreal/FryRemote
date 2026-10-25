@@ -1,19 +1,13 @@
 //! Modular UI Architecture for FryRemote.
 //!
-//! Provides extensible UI skinning where different visual styles (such as
-//! Material 3 Expressive and Classic Advanced Mode) can coexist and be switched
-//! at runtime without altering core networking, protocol, or controller logic.
-//!
-//! ### Adding a New UI Skin in the Future:
-//! 1. Create a submodule directory under `src/ui/<your_skin_name>/`
-//! 2. Implement the render function with signature:
-//!    `render(ui: &mut Ui, palette: &ThemePalette, state: &mut UiState, ctrl: &mut Controller, snap: &Shared, ...)`
-//! 3. Add a new variant to `UiMode` enum below.
-//! 4. Add the dispatch branch in `UiManager::ui`.
+//! Provides extensible UI skinning where different visual styles (Apple TV Minimal,
+//! Material 3 Expressive, and Classic Advanced Mode) coexist and are switched
+//! at runtime in a seamless loop without altering core networking, protocol, or controller logic.
 
 pub mod advanced;
 pub mod common;
 pub mod expressive;
+pub mod minimal;
 pub mod state;
 pub mod theme;
 
@@ -26,15 +20,37 @@ use eframe::egui::Ui;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum UiMode {
-    /// Primary UI: Material 3 Expressive redesign matching Google TV aesthetics.
+    /// Primary Default UI: Minimal Apple TV Edition
+    Minimal,
+    /// Material 3 Expressive UI matching Google TV aesthetics
     Expressive,
-    /// Advanced Mode: Full-screen responsive layout with all legacy controls.
+    /// Advanced Mode: Full-screen responsive layout with all legacy controls
     Advanced,
+}
+
+impl UiMode {
+    /// Cycles to the next UI layout in a continuous loop:
+    /// Minimal (Apple TV) -> Expressive (Material 3) -> Advanced -> Minimal...
+    pub fn next(&self) -> Self {
+        match self {
+            UiMode::Minimal => UiMode::Expressive,
+            UiMode::Expressive => UiMode::Advanced,
+            UiMode::Advanced => UiMode::Minimal,
+        }
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self {
+            UiMode::Minimal => "Apple TV Minimal",
+            UiMode::Expressive => "Material 3 Expressive",
+            UiMode::Advanced => "Advanced Full-Screen",
+        }
+    }
 }
 
 impl Default for UiMode {
     fn default() -> Self {
-        UiMode::Expressive
+        UiMode::Minimal
     }
 }
 
@@ -49,8 +65,8 @@ pub struct UiManager {
 impl UiManager {
     pub fn new() -> Self {
         Self {
-            mode: UiMode::Expressive,
-            theme: ThemeKind::Sky,
+            mode: UiMode::Minimal,
+            theme: ThemeKind::Obsidian,
             state: UiState::default(),
             last_applied_theme: None,
             last_applied_mode: None,
@@ -66,7 +82,15 @@ impl UiManager {
     ) {
         // Apply theme styling when theme or mode changes
         let palette = match self.mode {
-            UiMode::Expressive => ThemePalette::for_kind(self.theme),
+            UiMode::Minimal => ThemePalette::for_kind(self.theme),
+            UiMode::Expressive => {
+                // If switching into Expressive from an Apple TV theme, ensure an Expressive theme
+                let expr_theme = match self.theme {
+                    ThemeKind::Obsidian | ThemeKind::Silver | ThemeKind::Titanium => ThemeKind::Sky,
+                    other => other,
+                };
+                ThemePalette::for_kind(expr_theme)
+            }
             UiMode::Advanced => ThemePalette::classic(),
         };
 
@@ -78,6 +102,18 @@ impl UiManager {
 
         // Render according to active UI mode
         match self.mode {
+            UiMode::Minimal => {
+                minimal::render_minimal_ui(
+                    ui,
+                    &palette,
+                    &mut self.state,
+                    ctrl,
+                    snap,
+                    &mut self.theme,
+                    &mut self.mode,
+                    screen,
+                );
+            }
             UiMode::Expressive => {
                 expressive::render_expressive_ui(
                     ui,

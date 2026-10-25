@@ -58,8 +58,21 @@ pub fn render_expressive_sheets(
         ActiveSheet::UxNotes => {
             render_ux_modal(ui, palette, state, screen_rect);
         }
+        ActiveSheet::Apps => {}
         ActiveSheet::None => {}
     }
+}
+
+fn sheet_rect_for(screen_rect: Rect, sheet_h: f32) -> Rect {
+    let total_w = screen_rect.width();
+    let is_wide = total_w > 500.0;
+    let sheet_w = if is_wide {
+        (total_w * 0.42).clamp(380.0, 480.0)
+    } else {
+        total_w
+    };
+    let sheet_x = screen_rect.min.x + (total_w - sheet_w) * 0.5;
+    Rect::from_min_size(pos2(sheet_x, screen_rect.max.y - sheet_h), vec2(sheet_w, sheet_h))
 }
 
 // ---------------------------------------------------------------------------
@@ -76,10 +89,7 @@ fn render_options_sheet(
     now: f64,
 ) {
     let sheet_h = 350.0;
-    let sheet_rect = Rect::from_min_max(
-        pos2(screen_rect.min.x, screen_rect.max.y - sheet_h),
-        screen_rect.max,
-    );
+    let sheet_rect = sheet_rect_for(screen_rect, sheet_h);
     let painter = ui.painter();
     painter.rect_filled(sheet_rect, 34.0, palette.surface);
     painter.rect_stroke(sheet_rect, 34.0, palette.outline(), StrokeKind::Inside);
@@ -104,7 +114,7 @@ fn render_options_sheet(
     let mode_resp = ui.interact(mode_rect, ui.scope_id().with("opt_mode_switch"), Sense::click());
     painter.rect_filled(mode_rect, 12.0, palette.surface_high);
     painter.rect_stroke(mode_rect, 12.0, palette.outline(), StrokeKind::Inside);
-    painter.text(mode_rect.center(), Align2::CENTER_CENTER, "🛠️ Advanced Mode", FontId::proportional(10.5), palette.primary);
+    painter.text(mode_rect.center(), Align2::CENTER_CENTER, "Advanced Mode", FontId::proportional(10.5), palette.primary);
 
     if mode_resp.clicked() {
         haptics::trigger(HapticStyle::Heavy);
@@ -202,10 +212,7 @@ fn render_device_sheet(
     now: f64,
 ) {
     let sheet_h = 420.0;
-    let sheet_rect = Rect::from_min_max(
-        pos2(screen_rect.min.x, screen_rect.max.y - sheet_h),
-        screen_rect.max,
-    );
+    let sheet_rect = sheet_rect_for(screen_rect, sheet_h);
     let painter = ui.painter();
     painter.rect_filled(sheet_rect, 34.0, palette.surface);
     painter.rect_stroke(sheet_rect, 34.0, palette.outline(), StrokeKind::Inside);
@@ -335,10 +342,7 @@ fn render_keyboard_sheet(
     now: f64,
 ) {
     let sheet_h = 240.0;
-    let sheet_rect = Rect::from_min_max(
-        pos2(screen_rect.min.x, screen_rect.max.y - sheet_h),
-        screen_rect.max,
-    );
+    let sheet_rect = sheet_rect_for(screen_rect, sheet_h);
     let painter = ui.painter();
     painter.rect_filled(sheet_rect, 34.0, palette.surface);
     painter.rect_stroke(sheet_rect, 34.0, palette.outline(), StrokeKind::Inside);
@@ -409,10 +413,7 @@ fn render_media_scrubber_sheet(
     now: f64,
 ) {
     let sheet_h = 280.0;
-    let sheet_rect = Rect::from_min_max(
-        pos2(screen_rect.min.x, screen_rect.max.y - sheet_h),
-        screen_rect.max,
-    );
+    let sheet_rect = sheet_rect_for(screen_rect, sheet_h);
     ui.painter().rect_filled(sheet_rect, 34.0, palette.surface);
     ui.painter().rect_stroke(sheet_rect, 34.0, palette.outline(), StrokeKind::Inside);
 

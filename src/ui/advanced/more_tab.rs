@@ -89,7 +89,7 @@ pub fn render_advanced_more_tab(
 
             ui.add_space(8.0);
             let test_w = w - 48.0;
-            if custom_button(ui, vec2(test_w, 36.0), "⚡ Test Tactile Vibration", BtnIcon::None, Some(Color32::from_rgb(26, 42, 68)), 10.0, false) {
+            if custom_button(ui, vec2(test_w, 36.0), "Test Tactile Vibration", BtnIcon::None, Some(Color32::from_rgb(26, 42, 68)), 10.0, false) {
                 haptics::trigger(HapticStyle::Heavy);
             }
         });

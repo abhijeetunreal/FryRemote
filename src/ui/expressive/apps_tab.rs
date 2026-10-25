@@ -64,7 +64,7 @@ pub fn render_expressive_apps_tab(
     // 2-Column Bento Grid
     let gap = 10.0;
     let card_w = (avail_w - gap) * 0.5;
-    let card_h = 104.0;
+    let card_h = (card_w * 0.60).clamp(88.0, 115.0);
 
     let apps = [
         AppCardData {

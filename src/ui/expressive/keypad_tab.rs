@@ -50,7 +50,7 @@ pub fn render_expressive_keypad_tab(
     // 2. 3x4 Rounded Number Pad
     let gap = 8.0;
     let btn_w = (avail_w - 2.0 * gap) / 3.0;
-    let btn_h = 52.0;
+    let btn_h = (btn_w * 0.52).clamp(42.0, 58.0);
 
     let rows: [[&str; 3]; 4] = [
         ["1", "2", "3"],

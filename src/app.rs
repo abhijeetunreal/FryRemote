@@ -151,8 +151,9 @@ impl eframe::App for RemoteApp {
             }
         }
 
+        let canvas_bg = ThemePalette::for_kind(self.ui_mgr.theme).bg;
         egui::CentralPanel::default()
-            .frame(egui::Frame::new().fill(self.ui_mgr.theme.dot_color()).inner_margin(0.0))
+            .frame(egui::Frame::new().fill(canvas_bg).inner_margin(0.0))
             .show(ui, |ui| {
                 match self.screen.clone() {
                     Screen::Pair(tv) => {
