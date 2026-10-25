@@ -1,9 +1,12 @@
-#[cfg(not(target_os = "android"))]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 fn main() -> eframe::Result {
     env_logger::init();
     tvremote::run_desktop()
 }
 
-// The Android build uses the library's `android_main`; this binary is desktop-only.
-#[cfg(target_os = "android")]
+// Android uses `android_main` in the library; WebAssembly uses `tvremote-web`.
+#[cfg(any(target_os = "android", target_arch = "wasm32"))]
 fn main() {}
+

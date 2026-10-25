@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <!-- Speaker cone -->
+  <path d="M 4 9 L 7.5 9 L 11.5 5.5 L 11.5 18.5 L 7.5 15 L 4 15 Z" fill="#FFFFFF"/>
+  <!-- Mute diagonal slash in red -->
+  <line x1="15" y1="9" x2="21" y2="15" stroke="#EF4444" stroke-width="2.2" stroke-linecap="round"/>
+  <line x1="21" y1="9" x2="15" y2="15" stroke="#EF4444" stroke-width="2.2" stroke-linecap="round"/>
+</svg>

@@ -2,17 +2,26 @@
 
 pub mod app;
 pub mod controller;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod creds;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod discovery;
+pub mod haptics;
 pub mod icons;
 pub mod keys;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod pairing;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod proto;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod remote;
 pub mod state;
 pub mod store;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod tls;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod wire;
+
 
 #[cfg(target_os = "android")]
 mod android;
@@ -40,16 +49,17 @@ pub fn android_main(app: android_activity::AndroidApp) {
 }
 
 /// Desktop entry point (handy for trying the UI on a computer).
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 pub fn run_desktop() -> eframe::Result {
     let dir = std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
         .map(std::path::PathBuf::from)
         .unwrap_or_else(std::env::temp_dir)
         .join(".tvremote");
     let options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()
             .with_title("FryRemote")
-            .with_inner_size([390.0, 780.0])
+            .with_inner_size([390.0, 820.0])
             .with_icon(app_icon())
             .with_resizable(true)
             .with_active(true)
@@ -63,6 +73,7 @@ pub fn run_desktop() -> eframe::Result {
     )
 }
 
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 fn app_icon() -> eframe::egui::IconData {
     let width = 32;
     let height = 32;

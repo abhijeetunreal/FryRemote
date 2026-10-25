@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 44" fill="none">
+  <!-- Radiating Wi-Fi Waves -->
+  <path d="M 6 12 C 12 5 24 5 30 12" stroke="#3B82F6" stroke-width="3" stroke-linecap="round"/>
+  <path d="M 11 17 C 15 12 21 12 25 17" stroke="#3B82F6" stroke-width="2.8" stroke-linecap="round"/>
+  <!-- Remote Control Pill Body -->
+  <rect x="10" y="21" width="16" height="21" rx="8" fill="#F8FAFC"/>
+  <!-- Plus / D-pad on Remote -->
+  <rect x="16.5" y="26" width="3" height="11" rx="1.5" fill="#0F172A"/>
+  <rect x="12.5" y="30" width="11" height="3" rx="1.5" fill="#0F172A"/>
+</svg>

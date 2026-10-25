@@ -1,0 +1,156 @@
+name: Release Desktop
+
+on:
+  push:
+    tags:
+      - "v*"
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Release Tag (e.g. v0.1.0). When set, creates or updates the GitHub Release."
+        required: false
+        default: "v0.1.0"
+        type: string
+      draft:
+        description: "Create as a draft release"
+        required: false
+        default: false
+        type: boolean
+      prerelease:
+        description: "Mark as a pre-release"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+
+jobs:
+  build-mac:
+    name: Build macOS Universal
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build Apple Silicon & Intel targets
+        run: |
+          cargo build --release --target aarch64-apple-darwin --bin tvremote-desktop
+          cargo build --release --target x86_64-apple-darwin --bin tvremote-desktop
+
+      - name: Package Universal Binary & App
+        run: |
+          mkdir -p package/FryRemote.app/Contents/MacOS
+          mkdir -p package/FryRemote.app/Contents/Resources
+          lipo -create -output package/FryRemote target/aarch64-apple-darwin/release/tvremote-desktop target/x86_64-apple-darwin/release/tvremote-desktop
+          chmod +x package/FryRemote
+          cp package/FryRemote package/FryRemote.app/Contents/MacOS/FryRemote
+          if [ -d "assets" ]; then
+            cp -r assets package/FryRemote.app/Contents/Resources/ 2>/dev/null || true
+          fi
+          cd package
+          zip -r ../FryRemote-macos-universal.zip FryRemote FryRemote.app
+          cd ..
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FryRemote-macos-universal
+          path: FryRemote-macos-universal.zip
+          if-no-files-found: error
+
+  build-linux:
+    name: Build Linux x86_64
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux GUI & Windowing libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxcb1-dev libxcursor-dev libxrandr-dev libxi-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev libgl1-mesa-dev libwayland-dev
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build Linux release
+        run: cargo build --release --bin tvremote-desktop
+
+      - name: Package Linux archive
+        run: |
+          mkdir -p package
+          cp target/release/tvremote-desktop package/FryRemote
+          chmod +x package/FryRemote
+          cp README.md package/ 2>/dev/null || true
+          tar -czvf FryRemote-linux-x86_64.tar.gz -C package FryRemote README.md
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FryRemote-linux-x86_64
+          path: FryRemote-linux-x86_64.tar.gz
+          if-no-files-found: error
+
+  build-windows:
+    name: Build Windows x86_64
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build Windows release
+        run: cargo build --release --bin tvremote-desktop
+
+      - name: Package Windows archive
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path package
+          Copy-Item target/release/tvremote-desktop.exe package/FryRemote.exe
+          if (Test-Path README.md) { Copy-Item README.md package/ }
+          Compress-Archive -Path package/* -DestinationPath FryRemote-windows-x86_64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FryRemote-windows-x86_64
+          path: FryRemote-windows-x86_64.zip
+          if-no-files-found: error
+
+  publish:
+    name: Publish Release Assets
+    needs: [build-mac, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.tag_name != '')
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Publish desktop archives to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag_name || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || '' }}
+          name: FryRemote ${{ inputs.tag_name || github.ref_name }}
+          files: release-artifacts/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          make_latest: true
+          draft: ${{ inputs.draft || false }}
+          prerelease: ${{ inputs.prerelease || false }}
+
