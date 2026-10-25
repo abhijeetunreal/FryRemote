@@ -174,6 +174,12 @@ impl Controller {
         }
     }
 
+    pub fn send_text(&self, text: &str) {
+        if let Some(r) = &self.remote {
+            r.text(text);
+        }
+    }
+
     pub fn launch(&self, link: &str) {
         if let Some(r) = &self.remote {
             r.launch(link);

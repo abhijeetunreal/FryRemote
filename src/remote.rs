@@ -16,6 +16,7 @@ pub const REMOTE_PORT: u16 = 6466;
 #[derive(Debug)]
 pub enum Cmd {
     Key { code: i32, direction: i32 },
+    Text(String),
     Launch(String),
     Disconnect,
 }
@@ -31,6 +32,9 @@ impl RemoteHandle {
     }
     pub fn key_dir(&self, code: i32, direction: i32) {
         let _ = self.tx.send(Cmd::Key { code, direction });
+    }
+    pub fn text(&self, s: &str) {
+        let _ = self.tx.send(Cmd::Text(s.to_string()));
     }
     pub fn launch(&self, link: &str) {
         let _ = self.tx.send(Cmd::Launch(link.to_string()));
@@ -154,6 +158,8 @@ async fn session(
     });
 
     let mut ready = false;
+    let mut field_counter = 0i32;
+    let mut ime_counter = 0i32;
     let result = loop {
         tokio::select! {
             msg = mrx.recv() => {
@@ -213,6 +219,18 @@ async fn session(
                             Some(a.app_package).filter(|s| !s.is_empty());
                         notify();
                     }
+                    if let Some(tf) = i.text_field_status {
+                        field_counter = tf.counter_field;
+                    }
+                }
+                if let Some(req) = msg.ime_show_request {
+                    if let Some(tf) = req.text_field_status {
+                        field_counter = tf.counter_field;
+                    }
+                }
+                if let Some(b) = msg.ime_batch_edit {
+                    ime_counter = b.ime_counter;
+                    field_counter = b.field_counter;
                 }
             }
             cmd = rx.recv() => {
@@ -225,6 +243,39 @@ async fn session(
                                 ..Default::default()
                             };
                             write_msg(&mut wr, &m).await?;
+                        }
+                    }
+                    Some(Cmd::Text(text)) => {
+                        if ready {
+                            ime_counter += 1;
+                            let char_len = text.chars().count() as i32;
+                            let m = RemoteMessage {
+                                ime_batch_edit: Some(RemoteImeBatchEdit {
+                                    ime_counter,
+                                    field_counter,
+                                    edit_info: vec![RemoteEditInfo {
+                                        insert: 0,
+                                        text_field_status: Some(RemoteImeObject {
+                                            start: char_len,
+                                            end: char_len,
+                                            value: text.clone(),
+                                        }),
+                                    }],
+                                }),
+                                ..Default::default()
+                            };
+                            write_msg(&mut wr, &m).await?;
+
+                            // Also inject standard keycodes for each char as fallback
+                            for c in text.chars() {
+                                if let Some(k) = crate::keys::key_for_char(c) {
+                                    let km = RemoteMessage {
+                                        key_inject: Some(RemoteKeyInject { key_code: k, direction: DIR_SHORT }),
+                                        ..Default::default()
+                                    };
+                                    write_msg(&mut wr, &km).await?;
+                                }
+                            }
                         }
                     }
                     Some(Cmd::Launch(link)) => {

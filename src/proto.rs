@@ -117,6 +117,10 @@ pub struct RemoteMessage {
     pub key_inject: Option<RemoteKeyInject>,
     #[prost(message, optional, tag = "20")]
     pub ime_key_inject: Option<RemoteImeKeyInject>,
+    #[prost(message, optional, tag = "21")]
+    pub ime_batch_edit: Option<RemoteImeBatchEdit>,
+    #[prost(message, optional, tag = "22")]
+    pub ime_show_request: Option<RemoteImeShowRequest>,
     #[prost(message, optional, tag = "40")]
     pub start: Option<RemoteStart>,
     #[prost(message, optional, tag = "50")]
@@ -195,6 +199,58 @@ pub struct RemoteAppInfo {
 pub struct RemoteImeKeyInject {
     #[prost(message, optional, tag = "1")]
     pub app_info: Option<RemoteAppInfo>,
+    #[prost(message, optional, tag = "2")]
+    pub text_field_status: Option<RemoteTextFieldStatus>,
+}
+
+#[derive(Clone, PartialEq, Message)]
+pub struct RemoteTextFieldStatus {
+    #[prost(int32, tag = "1")]
+    pub counter_field: i32,
+    #[prost(string, tag = "2")]
+    pub value: String,
+    #[prost(int32, tag = "3")]
+    pub start: i32,
+    #[prost(int32, tag = "4")]
+    pub end: i32,
+    #[prost(int32, tag = "5")]
+    pub int5: i32,
+    #[prost(string, tag = "6")]
+    pub label: String,
+}
+
+#[derive(Clone, PartialEq, Message)]
+pub struct RemoteImeBatchEdit {
+    #[prost(int32, tag = "1")]
+    pub ime_counter: i32,
+    #[prost(int32, tag = "2")]
+    pub field_counter: i32,
+    #[prost(message, repeated, tag = "3")]
+    pub edit_info: Vec<RemoteEditInfo>,
+}
+
+#[derive(Clone, PartialEq, Message)]
+pub struct RemoteEditInfo {
+    #[prost(int32, tag = "1")]
+    pub insert: i32,
+    #[prost(message, optional, tag = "2")]
+    pub text_field_status: Option<RemoteImeObject>,
+}
+
+#[derive(Clone, PartialEq, Message)]
+pub struct RemoteImeObject {
+    #[prost(int32, tag = "1")]
+    pub start: i32,
+    #[prost(int32, tag = "2")]
+    pub end: i32,
+    #[prost(string, tag = "3")]
+    pub value: String,
+}
+
+#[derive(Clone, PartialEq, Message)]
+pub struct RemoteImeShowRequest {
+    #[prost(message, optional, tag = "2")]
+    pub text_field_status: Option<RemoteTextFieldStatus>,
 }
 
 #[derive(Clone, PartialEq, Message)]

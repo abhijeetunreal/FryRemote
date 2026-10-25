@@ -32,6 +32,12 @@ pub fn draw_status_bar(ui: &mut Ui, width: f32) {
         text_color,
     );
 
+    // Front camera punch-hole (centered at top)
+    let cam_c = pos2(rect.center().x, rect.center().y);
+    painter.circle_filled(cam_c, 4.5, Color32::from_rgb(4, 6, 12));
+    painter.circle_stroke(cam_c, 4.5, Stroke::new(1.0, Color32::from_rgb(18, 25, 38)));
+    painter.circle_filled(cam_c + vec2(-1.0, -1.0), 1.2, Color32::from_rgb(22, 34, 52));
+
     // Right-hand icons: Signal, Wi-Fi, Battery
     let right = rect.max.x - 12.0;
     let cy = rect.center().y;
@@ -134,6 +140,19 @@ pub fn draw_tv(painter: &egui::Painter, center: Pos2, color: Color32) {
     );
 }
 
+pub fn draw_mini_tv(painter: &egui::Painter, center: Pos2, color: Color32) {
+    let screen = Rect::from_center_size(center + vec2(0.0, -2.0), vec2(16.0, 11.0));
+    painter.rect_stroke(screen, 2.0, Stroke::new(1.5, color), StrokeKind::Inside);
+    painter.line_segment(
+        [center + vec2(0.0, 3.5), center + vec2(0.0, 6.0)],
+        Stroke::new(1.6, color),
+    );
+    painter.line_segment(
+        [center + vec2(-4.5, 6.0), center + vec2(4.5, 6.0)],
+        Stroke::new(1.6, color),
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Chevrons
 // ---------------------------------------------------------------------------
@@ -153,19 +172,28 @@ pub fn draw_chevron_up(painter: &egui::Painter, center: Pos2, size: f32, color: 
 }
 
 // ---------------------------------------------------------------------------
-// Settings Gear Icon
+// Settings Gear Icon (Standard Lucide/Material 6-tooth cogwheel)
 // ---------------------------------------------------------------------------
 
 pub fn draw_gear(painter: &egui::Painter, center: Pos2, size: f32, color: Color32) {
-    let r = size * 0.7;
-    painter.circle_stroke(center, r * 0.65, Stroke::new(1.8, color));
+    let r_out = size;
+    let r_root = size * 0.70;
+    let r_hole = size * 0.35;
+    let r_mid = (r_root + r_hole) * 0.5;
+    let ring_w = r_root - r_hole;
 
-    // 8 teeth around perimeter
-    for i in 0..8 {
-        let angle = (i as f32) * std::f32::consts::PI / 4.0;
-        let p1 = center + vec2(angle.cos() * (r * 0.5), angle.sin() * (r * 0.5));
-        let p2 = center + vec2(angle.cos() * (r * 1.05), angle.sin() * (r * 1.05));
-        painter.line_segment([p1, p2], Stroke::new(2.2, color));
+    // Solid inner rim ring
+    painter.circle_stroke(center, r_mid, Stroke::new(ring_w, color));
+
+    // 6 solid cog teeth
+    let teeth = 6;
+    let tooth_w = size * 0.44;
+    for i in 0..teeth {
+        let angle = (i as f32) * std::f32::consts::TAU / (teeth as f32);
+        let dir = vec2(angle.cos(), angle.sin());
+        let p1 = center + dir * (r_root - 0.5);
+        let p2 = center + dir * r_out;
+        painter.line_segment([p1, p2], Stroke::new(tooth_w, color));
     }
 }
 
@@ -225,33 +253,34 @@ pub fn draw_speaker_card(painter: &egui::Painter, center: Pos2, color: Color32) 
 }
 
 pub fn draw_speaker_vol_down(painter: &egui::Painter, center: Pos2, color: Color32) {
-    draw_speaker_cone(painter, center + vec2(-4.0, 0.0), color);
-    // Minus symbol
-    painter.line_segment(
-        [center + vec2(2.0, 0.0), center + vec2(7.5, 0.0)],
-        Stroke::new(2.0, color),
-    );
+    draw_speaker_cone(painter, center + vec2(-2.5, 0.0), color);
+    // 1 sound wave arc
+    painter.add(Shape::line(
+        vec![center + vec2(1.0, -3.5), center + vec2(4.0, 0.0), center + vec2(1.0, 3.5)],
+        Stroke::new(1.6, color),
+    ));
 }
 
 pub fn draw_speaker_vol_up(painter: &egui::Painter, center: Pos2, color: Color32) {
-    draw_speaker_cone(painter, center + vec2(-4.0, 0.0), color);
-    // Plus symbol
-    painter.line_segment(
-        [center + vec2(2.0, 0.0), center + vec2(8.0, 0.0)],
-        Stroke::new(2.0, color),
-    );
-    painter.line_segment(
-        [center + vec2(5.0, -3.0), center + vec2(5.0, 3.0)],
-        Stroke::new(2.0, color),
-    );
+    draw_speaker_cone(painter, center + vec2(-3.5, 0.0), color);
+    // Inner sound wave arc
+    painter.add(Shape::line(
+        vec![center + vec2(0.0, -3.0), center + vec2(2.5, 0.0), center + vec2(0.0, 3.0)],
+        Stroke::new(1.5, color),
+    ));
+    // Outer sound wave arc
+    painter.add(Shape::line(
+        vec![center + vec2(2.5, -5.0), center + vec2(6.0, 0.0), center + vec2(2.5, 5.0)],
+        Stroke::new(1.6, color),
+    ));
 }
 
 pub fn draw_speaker_mute(painter: &egui::Painter, center: Pos2, color: Color32) {
     draw_speaker_cone(painter, center + vec2(-2.0, 0.0), color);
     // Diagonal slash
     painter.line_segment(
-        [center + vec2(-6.5, 6.5), center + vec2(6.5, -6.5)],
-        Stroke::new(2.2, Color32::from_rgb(255, 95, 95)),
+        [center + vec2(-5.5, 5.5), center + vec2(5.5, -5.5)],
+        Stroke::new(2.0, Color32::from_rgb(255, 95, 95)),
     );
 }
 
@@ -283,18 +312,11 @@ pub fn draw_input(painter: &egui::Painter, center: Pos2, color: Color32) {
 // ---------------------------------------------------------------------------
 
 pub fn draw_back(painter: &egui::Painter, center: Pos2, color: Color32) {
-    painter.line_segment(
-        [center + vec2(5.5, 0.0), center + vec2(-5.5, 0.0)],
+    // Left chevron ‹
+    painter.add(Shape::line(
+        vec![center + vec2(2.5, -5.0), center + vec2(-2.5, 0.0), center + vec2(2.5, 5.0)],
         Stroke::new(2.2, color),
-    );
-    painter.line_segment(
-        [center + vec2(-1.5, -4.0), center + vec2(-5.5, 0.0)],
-        Stroke::new(2.2, color),
-    );
-    painter.line_segment(
-        [center + vec2(-1.5, 4.0), center + vec2(-5.5, 0.0)],
-        Stroke::new(2.2, color),
-    );
+    ));
 }
 
 pub fn draw_home(painter: &egui::Painter, center: Pos2, color: Color32) {
@@ -475,6 +497,70 @@ pub fn draw_arrow_triangle(painter: &egui::Painter, center: Pos2, dir: Dir, size
 }
 
 // ---------------------------------------------------------------------------
+// D-Pad Mathematical C1 Cloverleaf Pod Boundary
+// ---------------------------------------------------------------------------
+
+pub fn cloverleaf_points(center: Pos2) -> Vec<Pos2> {
+    let d: f32 = 44.0;
+    let r_l: f32 = 24.0;
+    let r_w: f32 = 48.0;
+
+    // Derived parameters for exact C1 tangency:
+    let diff = r_l - r_w; // -24.0
+    let f_val = (d * d - diff * diff) / (2.0 * d + 2.0 * std::f32::consts::SQRT_2 * diff);
+    let r_f = f_val * std::f32::consts::SQRT_2 - r_w;
+
+    // Angle of tangency relative to lobe center
+    let alpha = (d - f_val).atan2(f_val);
+
+    // Build quadrant 0 (from top lobe peak at -pi/2 to right lobe peak at 0)
+    let mut quad0 = Vec::new();
+
+    // 1. Top lobe arc from angle -pi/2 to alpha
+    let n_lobe = 14;
+    for i in 0..=n_lobe {
+        let t = i as f32 / n_lobe as f32;
+        let angle = -std::f32::consts::FRAC_PI_2 + t * (alpha - (-std::f32::consts::FRAC_PI_2));
+        quad0.push(pos2(r_l * angle.cos(), -d + r_l * angle.sin()));
+    }
+
+    // 2. Fillet arc from angle (pi + alpha) down to (pi/2 - alpha)
+    let n_fillet = 14;
+    let phi_start = std::f32::consts::PI + alpha;
+    let phi_end = std::f32::consts::FRAC_PI_2 - alpha;
+    for i in 1..=n_fillet {
+        let t = i as f32 / n_fillet as f32;
+        let phi = phi_start + t * (phi_end - phi_start);
+        quad0.push(pos2(f_val + r_f * phi.cos(), -f_val + r_f * phi.sin()));
+    }
+
+    // 3. Right lobe arc from (-pi/2 - alpha) to 0
+    let psi_start = -std::f32::consts::FRAC_PI_2 - alpha;
+    let psi_end = 0.0;
+    for i in 1..=n_lobe {
+        let t = i as f32 / n_lobe as f32;
+        let psi = psi_start + t * (psi_end - psi_start);
+        quad0.push(pos2(d + r_l * psi.cos(), r_l * psi.sin()));
+    }
+
+    // Rotate quad0 by 0, 90, 180, 270 degrees to get the seamless full cloverleaf
+    let mut full_pts = Vec::with_capacity(quad0.len() * 4);
+    for rot in 0..4 {
+        let rot_angle = (rot as f32) * std::f32::consts::FRAC_PI_2;
+        let cos_r = rot_angle.cos();
+        let sin_r = rot_angle.sin();
+        let start_idx = if rot == 0 { 0 } else { 1 };
+        for pt in &quad0[start_idx..] {
+            let rx = pt.x * cos_r - pt.y * sin_r;
+            let ry = pt.x * sin_r + pt.y * cos_r;
+            full_pts.push(center + vec2(rx, ry));
+        }
+    }
+
+    full_pts
+}
+
+// ---------------------------------------------------------------------------
 // Streaming App Brand Logos
 // ---------------------------------------------------------------------------
 
@@ -516,25 +602,31 @@ pub fn draw_prime(painter: &egui::Painter, center: Pos2) {
     let prime_blue = Color32::from_rgb(0, 168, 225);
     // "prime" text
     painter.text(
-        center + vec2(0.0, -2.5),
+        center + vec2(0.0, -3.0),
         Align2::CENTER_CENTER,
         "prime",
-        FontId::proportional(11.0),
+        FontId::proportional(10.0),
         prime_blue,
     );
     // Curved smile arrow
     painter.add(Shape::line(
-        vec![center + vec2(-8.0, 4.0), center + vec2(0.0, 6.8), center + vec2(7.5, 4.0)],
-        Stroke::new(1.6, prime_blue),
+        vec![center + vec2(-7.0, 3.0), center + vec2(0.0, 5.5), center + vec2(6.5, 3.0)],
+        Stroke::new(1.4, prime_blue),
     ));
 }
 
 pub fn draw_disney(painter: &egui::Painter, center: Pos2) {
+    // Elegant Disney arc above text
+    painter.add(Shape::line(
+        vec![center + vec2(-15.0, -2.0), center + vec2(-1.0, -8.0), center + vec2(13.0, -3.0)],
+        Stroke::new(1.4, Color32::from_rgb(160, 205, 255)),
+    ));
+    // "Disney+" text
     painter.text(
-        center,
+        center + vec2(0.0, 1.0),
         Align2::CENTER_CENTER,
         "Disney+",
-        FontId::proportional(11.5),
+        FontId::proportional(12.0),
         Color32::WHITE,
     );
 }

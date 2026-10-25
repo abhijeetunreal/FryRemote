@@ -4,7 +4,7 @@ use crate::controller::{Controller, Notify};
 use crate::icons::*;
 use crate::keys;
 use crate::state::*;
-use eframe::egui::{self, pos2, vec2, Align2, Color32, FontId, Pos2, Rect, RichText, Sense, Stroke, StrokeKind, Ui, Vec2};
+use eframe::egui::{self, pos2, vec2, Align2, Color32, FontId, Pos2, Rect, RichText, Sense, Shape, Stroke, StrokeKind, Ui, Vec2};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -50,10 +50,10 @@ pub struct RemoteApp {
     show_tv_selector: bool,
     ip_input: String,
     code_input: String,
+    typed_text: String,
     show_ip_pad: bool,
     touch_acc: Vec2,
     auto_scanned: bool,
-    sim_volume: f32,
 }
 
 impl RemoteApp {
@@ -68,10 +68,10 @@ impl RemoteApp {
             show_tv_selector: false,
             ip_input: String::new(),
             code_input: String::new(),
+            typed_text: String::new(),
             show_ip_pad: false,
             touch_acc: Vec2::ZERO,
             auto_scanned: false,
-            sim_volume: 0.15,
         };
 
         // If we have saved TVs, auto-connect to the first paired TV
@@ -119,18 +119,60 @@ impl eframe::App for RemoteApp {
             self.ctrl.scan();
         }
 
+        // Physical keyboard event listener: captures key presses and sends to Android TV
+        let has_text_focus = ui.memory(|m| m.focused().is_some());
+        if !has_text_focus && !self.show_ip_pad && !matches!(self.screen, Screen::Pair(_)) {
+            let events = ui.input(|i| i.events.clone());
+            for event in events {
+                match event {
+                    egui::Event::Text(t) => {
+                        if !t.is_empty() {
+                            self.ctrl.send_text(&t);
+                        }
+                    }
+                    egui::Event::Key { key, pressed: true, .. } => {
+                        match key {
+                            egui::Key::Backspace => {
+                                self.ctrl.key(keys::DEL);
+                            }
+                            egui::Key::Enter => {
+                                self.ctrl.key(keys::ENTER);
+                            }
+                            egui::Key::Space => {
+                                self.ctrl.send_text(" ");
+                            }
+                            egui::Key::ArrowUp => {
+                                self.ctrl.key(keys::DPAD_UP);
+                            }
+                            egui::Key::ArrowDown => {
+                                self.ctrl.key(keys::DPAD_DOWN);
+                            }
+                            egui::Key::ArrowLeft => {
+                                self.ctrl.key(keys::DPAD_LEFT);
+                            }
+                            egui::Key::ArrowRight => {
+                                self.ctrl.key(keys::DPAD_RIGHT);
+                            }
+                            egui::Key::Escape => {
+                                self.ctrl.key(keys::BACK);
+                            }
+                            _ => {}
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // Main Central Panel
         egui::CentralPanel::default()
             .frame(egui::Frame::new().fill(BG).inner_margin(egui::Margin::symmetric(14, 6)))
             .show(ui, |ui| {
                 let w = ui.available_width();
 
-                // 1. Top mobile status bar (9:41, Signal, Wi-Fi, Battery)
-                draw_status_bar(ui, w);
-                ui.add_space(4.0);
-
-                // 2. Header: Logo, FryRemote title, Connected status pill, Settings gear
-                self.render_header(ui, &snap, w);
-                ui.add_space(12.0);
+                // Header: Logo, FryRemote title, Settings gear
+                self.render_header(ui, w);
+                ui.add_space(6.0);
 
                 // Main content area based on screen and active tab
                 match self.screen.clone() {
@@ -138,18 +180,18 @@ impl eframe::App for RemoteApp {
                         self.pair_screen(ui, &snap, &tv, &mut next);
                     }
                     Screen::Remote => {
-                        // 3. Active TV Selector card ("Living Room / Google TV v")
-                        self.render_tv_card(ui, w);
-                        ui.add_space(10.0);
+                        // Compact TV device selector on top-left + Status badge on right
+                        self.render_compact_device_row(ui, &snap, w);
+                        ui.add_space(6.0);
 
                         // If TV selector drawer is open
                         if self.show_tv_selector {
                             self.render_tv_selector_drawer(ui, &snap, w, &mut next);
-                            ui.add_space(12.0);
+                            ui.add_space(8.0);
                         }
 
-                        let nav_h = 62.0;
-                        let scroll_h = (ui.available_height() - nav_h).max(100.0);
+                        let nav_h = 54.0;
+                        let scroll_h = (ui.available_height() - nav_h - 4.0).max(100.0);
 
                         // Tab Content
                         match self.tab {
@@ -182,7 +224,7 @@ impl eframe::App for RemoteApp {
                             }
                         }
 
-                        // 4. Fixed Bottom Navigation Bar (Remote, Apps, Touchpad, More)
+                        // Fixed Bottom Navigation Bar at the bottom
                         bottom_nav_bar(ui, &mut self.tab, w);
                     }
                 }
@@ -199,135 +241,160 @@ impl eframe::App for RemoteApp {
 // ---------------------------------------------------------------------------
 
 impl RemoteApp {
-    fn render_header(&mut self, ui: &mut Ui, snap: &Shared, _w: f32) {
+    fn render_header(&mut self, ui: &mut Ui, _w: f32) {
         ui.horizontal(|ui| {
             // Brand Logo: Controller with blue Wi-Fi waves
-            let (logo_rect, _) = ui.allocate_exact_size(vec2(28.0, 36.0), Sense::hover());
+            let (logo_rect, _) = ui.allocate_exact_size(vec2(28.0, 34.0), Sense::hover());
             draw_brand_logo(ui.painter(), logo_rect.center());
 
             ui.add_space(6.0);
 
             // Title: "Fry" (white) + "Remote" (electric blue)
             ui.vertical(|ui| {
-                ui.spacing_mut().item_spacing.y = 1.0;
+                ui.spacing_mut().item_spacing.y = 0.5;
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 0.0;
-                    ui.label(RichText::new("Fry").size(22.0).strong().color(TEXT_WHITE));
-                    ui.label(RichText::new("Remote").size(22.0).strong().color(ACCENT));
+                    ui.label(RichText::new("Fry").size(21.0).strong().color(TEXT_WHITE));
+                    ui.label(RichText::new("Remote").size(21.0).strong().color(ACCENT));
                 });
-                ui.label(RichText::new("Your Google TV Remote").size(11.5).color(TEXT_MUTED));
+                ui.label(RichText::new("Your Google TV Remote").size(11.0).color(TEXT_MUTED));
             });
 
-            // Right side: Connected badge + Settings Gear button
+            // Right side: Settings Gear button
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                // Settings Gear button
                 let (gear_rect, gear_resp) = ui.allocate_exact_size(vec2(32.0, 32.0), Sense::click());
                 let gear_color = if gear_resp.hovered() { TEXT_WHITE } else { ICON_SLATE };
                 draw_gear(ui.painter(), gear_rect.center(), 10.0, gear_color);
                 if gear_resp.clicked() {
                     self.show_tv_selector = !self.show_tv_selector;
                 }
-
-                ui.add_space(6.0);
-
-                // "● Connected" status pill
-                let (pill_color, pill_text, bg_color, border_color) = match &snap.status {
-                    ConnStatus::Connected => (GREEN_TEXT, "Connected", GREEN_BG, GREEN_BORDER),
-                    ConnStatus::Connecting => (
-                        Color32::from_rgb(255, 183, 77),
-                        "Connecting",
-                        Color32::from_rgb(38, 28, 12),
-                        Color32::from_rgb(70, 50, 20),
-                    ),
-                    ConnStatus::Failed(_) => (
-                        Color32::from_rgb(255, 95, 95),
-                        "Offline",
-                        Color32::from_rgb(38, 14, 14),
-                        Color32::from_rgb(70, 25, 25),
-                    ),
-                    ConnStatus::Idle => (
-                        TEXT_MUTED,
-                        "Idle",
-                        Color32::from_rgb(18, 25, 38),
-                        Color32::from_rgb(30, 42, 60),
-                    ),
-                };
-
-                let pill_h = 24.0;
-                let pill_w = 88.0;
-                let (pill_rect, _) = ui.allocate_exact_size(vec2(pill_w, pill_h), Sense::hover());
-                let painter = ui.painter();
-                painter.rect_filled(pill_rect, 12.0, bg_color);
-                painter.rect_stroke(pill_rect, 12.0, Stroke::new(1.0, border_color), StrokeKind::Inside);
-
-                // Green dot + text
-                painter.circle_filled(pos2(pill_rect.min.x + 13.0, pill_rect.center().y), 3.5, pill_color);
-                painter.text(
-                    pos2(pill_rect.min.x + 23.0, pill_rect.center().y),
-                    Align2::LEFT_CENTER,
-                    pill_text,
-                    FontId::proportional(11.5),
-                    pill_color,
-                );
             });
         });
     }
 
     // -----------------------------------------------------------------------
-    // TV Selector Card ("Living Room / Google TV v")
+    // Compact Device Row (Top-Left device pill + Top-Right status pill)
     // -----------------------------------------------------------------------
 
-    fn render_tv_card(&mut self, ui: &mut Ui, w: f32) {
-        let card_size = vec2(w, 56.0);
-        let (rect, resp) = ui.allocate_exact_size(card_size, Sense::click());
+    fn render_compact_device_row(&mut self, ui: &mut Ui, snap: &Shared, w: f32) {
+        let row_h = 30.0;
+        let (row_rect, _) = ui.allocate_exact_size(vec2(w, row_h), Sense::hover());
+        let painter = ui.painter();
+
+        // Device name logic: Show connected TV name when connected; otherwise "No Device"
+        let (device_name, is_connected) = match &snap.status {
+            ConnStatus::Connected => {
+                if let Some(tv) = &self.ctrl.active {
+                    (tv.name.clone(), true)
+                } else {
+                    ("No Device".to_string(), false)
+                }
+            }
+            ConnStatus::Connecting => ("Connecting...".to_string(), false),
+            _ => ("No Device".to_string(), false),
+        };
+
+        // 1. Power Button on the left of device button (icon-only, no text)
+        let power_w = 34.0;
+        let power_rect = Rect::from_min_size(row_rect.min, vec2(power_w, row_h));
+        let power_resp = ui.interact(power_rect, ui.scope_id().with("power_btn_top"), Sense::click());
+        let power_bg = if power_resp.is_pointer_button_down_on() {
+            Color32::from_rgb(50, 18, 24)
+        } else if power_resp.hovered() {
+            Color32::from_rgb(38, 16, 20)
+        } else {
+            CARD_BG
+        };
+        painter.rect_filled(power_rect, 15.0, power_bg);
+        painter.rect_stroke(power_rect, 15.0, Stroke::new(1.0, BORDER), StrokeKind::Inside);
+        draw_power(painter, power_rect.center(), 7.0, RED_POWER);
+        if power_resp.clicked() {
+            self.ctrl.key(keys::POWER);
+        }
+
+        // 2. Compact Device Selector Pill (to the right of Power Button)
+        let pill_start_x = row_rect.min.x + power_w + 6.0;
+        let badge_w = 96.0;
+        let pill_w = (row_rect.max.x - badge_w - 6.0 - pill_start_x).max(110.0);
+        let pill_rect = Rect::from_min_size(pos2(pill_start_x, row_rect.min.y), vec2(pill_w, row_h));
+        let resp = ui.interact(pill_rect, ui.scope_id().with("device_pill"), Sense::click());
         let bg = if resp.is_pointer_button_down_on() {
             BTN_ACTIVE
         } else if resp.hovered() {
-            Color32::from_rgb(22, 34, 54)
+            Color32::from_rgb(22, 36, 58)
         } else {
             CARD_BG
         };
 
-        let painter = ui.painter();
-        painter.rect_filled(rect, 16.0, bg);
-        painter.rect_stroke(rect, 16.0, Stroke::new(1.0, BORDER), StrokeKind::Inside);
+        painter.rect_filled(pill_rect, 15.0, bg);
+        painter.rect_stroke(pill_rect, 15.0, Stroke::new(1.0, BORDER), StrokeKind::Inside);
 
-        // TV outline icon
-        let tv_center = pos2(rect.min.x + 30.0, rect.center().y);
-        draw_tv(painter, tv_center, ICON_SLATE);
+        // Mini TV icon in electric blue
+        let tv_c = pos2(pill_rect.min.x + 16.0, pill_rect.center().y);
+        draw_mini_tv(painter, tv_c, ACCENT);
 
-        // Active TV name & subtitle
-        let active_name = self
-            .ctrl
-            .active
-            .as_ref()
-            .map(|t| t.name.clone())
-            .or_else(|| self.ctrl.store.tvs.first().map(|t| t.name.clone()))
-            .unwrap_or_else(|| "Living Room".to_string());
-
-        let text_x = rect.min.x + 58.0;
+        // TV Name or "No Device"
+        let text_x = pill_rect.min.x + 30.0;
+        let max_chars = 11;
+        let label = if device_name.chars().count() > max_chars {
+            format!("{}…", device_name.chars().take(max_chars - 1).collect::<String>())
+        } else {
+            device_name
+        };
         painter.text(
-            pos2(text_x, rect.center().y - 10.0),
+            pos2(text_x, pill_rect.center().y),
             Align2::LEFT_CENTER,
-            &active_name,
-            FontId::proportional(15.5),
-            TEXT_WHITE,
-        );
-        painter.text(
-            pos2(text_x, rect.center().y + 10.0),
-            Align2::LEFT_CENTER,
-            "Google TV",
-            FontId::proportional(12.0),
-            TEXT_MUTED,
+            &label,
+            FontId::proportional(12.5),
+            if is_connected { TEXT_WHITE } else { TEXT_MUTED },
         );
 
-        // Downward chevron v
-        let chevron_center = pos2(rect.max.x - 22.0, rect.center().y);
-        draw_chevron_down(painter, chevron_center, 4.5, TEXT_MUTED);
+        // Small chevron dropdown icon on right of pill
+        let chev_c = pos2(pill_rect.max.x - 14.0, pill_rect.center().y);
+        draw_chevron_down(painter, chev_c, 3.5, ICON_SLATE);
 
         if resp.clicked() {
             self.show_tv_selector = !self.show_tv_selector;
         }
+
+        // 3. Status Badge on Top-Right
+        let (status_text, dot_color, bg_color, border_color) = match &snap.status {
+            ConnStatus::Connected => ("Connected", GREEN_TEXT, GREEN_BG, GREEN_BORDER),
+            ConnStatus::Connecting => (
+                "Connecting",
+                Color32::from_rgb(255, 183, 77),
+                Color32::from_rgb(38, 28, 12),
+                Color32::from_rgb(70, 50, 20),
+            ),
+            ConnStatus::Failed(_) => (
+                "Offline",
+                Color32::from_rgb(255, 95, 95),
+                Color32::from_rgb(38, 14, 14),
+                Color32::from_rgb(70, 25, 25),
+            ),
+            ConnStatus::Idle => (
+                "Disconnected",
+                TEXT_MUTED,
+                Color32::from_rgb(18, 25, 38),
+                Color32::from_rgb(30, 42, 60),
+            ),
+        };
+
+        let badge_h = 24.0;
+        let badge_rect = Rect::from_center_size(
+            pos2(row_rect.max.x - badge_w * 0.5, row_rect.center().y),
+            vec2(badge_w, badge_h),
+        );
+        painter.rect_filled(badge_rect, 12.0, bg_color);
+        painter.rect_stroke(badge_rect, 12.0, Stroke::new(1.0, border_color), StrokeKind::Inside);
+        painter.circle_filled(pos2(badge_rect.min.x + 12.0, badge_rect.center().y), 3.0, dot_color);
+        painter.text(
+            pos2(badge_rect.min.x + 22.0, badge_rect.center().y),
+            Align2::LEFT_CENTER,
+            status_text,
+            FontId::proportional(11.0),
+            dot_color,
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -430,171 +497,160 @@ impl RemoteApp {
     // The Remote Tab (Primary Screen matching attached image)
     // -----------------------------------------------------------------------
 
-    fn render_remote_tab(&mut self, ui: &mut Ui, snap: &Shared, w: f32, _next: &mut Option<Screen>) {
-        // 1. Power Button & Volume Slider Card Row
-        self.render_power_volume_row(ui, snap, w);
-        ui.add_space(16.0);
-
-        // 2. D-Pad Directional Arrows & Center OK Button
+    fn render_remote_tab(&mut self, ui: &mut Ui, _snap: &Shared, w: f32, _next: &mut Option<Screen>) {
+        // 1. D-Pad Directional Arrows & Center Blank OK Button
         self.render_dpad(ui, w);
-        ui.add_space(16.0);
+        ui.add_space(5.0);
 
-        // 3. Navigation Row (Back, Home, Menu)
+        // 2. Navigation Row (Back, Home, Menu)
         self.render_nav_row(ui, w);
-        ui.add_space(10.0);
+        ui.add_space(4.0);
 
-        // 4. Function Grid Row 1 (Vol -, Mute, Vol +, Input)
+        // 3. Function Grid Row 1 (Vol -, Mute, Vol +, Input)
         self.render_function_row_1(ui, w);
-        ui.add_space(8.0);
+        ui.add_space(4.0);
 
-        // 5. Function Grid Row 2 (Ch -, Ch +, Guide, Info)
+        // 4. Function Grid Row 2 (Ch -, Ch +, Guide, Info)
         self.render_function_row_2(ui, w);
-        ui.add_space(10.0);
+        ui.add_space(4.0);
 
-        // 6. Media Grid Row 3 (Prev, Play/Pause, Next)
+        // 5. Media Grid Row 3 (Prev, Play/Pause, Next)
         self.render_function_row_3(ui, w);
-        ui.add_space(8.0);
+        ui.add_space(4.0);
 
-        // 7. Utility Grid Row 4 (Search, Captions, Settings)
+        // 6. Utility Grid Row 4 (Search, Captions, Settings — icon only)
         self.render_function_row_4(ui, w);
-        ui.add_space(14.0);
+        ui.add_space(6.0);
 
-        // 8. Apps Section (YouTube, Netflix, Prime, Disney+, Hotstar, Spotify)
+        // 7. Apps Section (YouTube, Netflix, Prime, Disney+, Hotstar, Spotify)
         self.render_apps_section(ui, w);
-        ui.add_space(70.0); // Margin for fixed bottom nav bar
+        ui.add_space(4.0);
     }
 
     // -----------------------------------------------------------------------
-    // Power & Volume Row
-    // -----------------------------------------------------------------------
-
-    fn render_power_volume_row(&mut self, ui: &mut Ui, snap: &Shared, w: f32) {
-        let gap = 10.0;
-        let power_w = (w * 0.35).floor();
-        let vol_w = w - power_w - gap;
-        let h = 48.0;
-
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = gap;
-
-            // Power Button (Red outline power icon + "Power" text)
-            if custom_button(ui, vec2(power_w, h), "Power", BtnIcon::Power, None, 16.0, false) {
-                self.ctrl.key(keys::POWER);
-            }
-
-            // Volume Card (Speaker icon, Volume 0/0, custom slider bar)
-            let (rect, resp) = ui.allocate_exact_size(vec2(vol_w, h), Sense::click_and_drag());
-            let bg = if resp.hovered() { Color32::from_rgb(22, 34, 54) } else { CARD_BG };
-            let painter = ui.painter();
-            painter.rect_filled(rect, 16.0, bg);
-            painter.rect_stroke(rect, 16.0, Stroke::new(1.0, BORDER), StrokeKind::Inside);
-
-            // Speaker Icon on left inside card
-            let spk_c = pos2(rect.min.x + 22.0, rect.center().y);
-            draw_speaker_card(painter, spk_c, ICON_SLATE);
-
-            // Volume info text and slider
-            let text_x = rect.min.x + 42.0;
-            let (vol_text, frac) = match snap.volume {
-                Some((lvl, max, muted)) => {
-                    let f = if max > 0 { (lvl as f32 / max as f32).clamp(0.0, 1.0) } else { 0.0 };
-                    let txt = if muted {
-                        "Muted".to_string()
-                    } else {
-                        format!("Volume {lvl}/{max}")
-                    };
-                    (txt, f)
-                }
-                None => ("Volume 0/0".to_string(), self.sim_volume),
-            };
-
-            // "Volume 0/0" label
-            painter.text(
-                pos2(text_x, rect.center().y - 8.5),
-                Align2::LEFT_CENTER,
-                &vol_text,
-                FontId::proportional(11.0),
-                TEXT_MUTED,
-            );
-
-            // Volume track groove
-            let track_start = pos2(text_x, rect.center().y + 8.0);
-            let track_w = (rect.max.x - 18.0 - text_x).max(40.0);
-            let track_rect = Rect::from_min_size(track_start, vec2(track_w, 4.0));
-            painter.rect_filled(track_rect, 2.0, Color32::from_rgb(10, 16, 26));
-
-            // Filled electric blue track
-            let filled_w = track_w * frac;
-            if filled_w > 0.0 {
-                let filled_rect = Rect::from_min_size(track_start, vec2(filled_w, 4.0));
-                painter.rect_filled(filled_rect, 2.0, ACCENT);
-            }
-
-            // Blue thumb knob
-            let knob_x = track_start.x + filled_w;
-            let knob_c = pos2(knob_x, track_start.y + 2.0);
-            painter.circle_filled(knob_c, 5.0, ACCENT);
-
-            // Drag / click volume adjustment
-            if resp.dragged() || resp.clicked() {
-                if let Some(pos) = ui.input(|i| i.pointer.interact_pos()) {
-                    let new_f = ((pos.x - track_start.x) / track_w).clamp(0.0, 1.0);
-                    if new_f > self.sim_volume {
-                        self.ctrl.key(keys::VOLUME_UP);
-                    } else if new_f < self.sim_volume {
-                        self.ctrl.key(keys::VOLUME_DOWN);
-                    }
-                    self.sim_volume = new_f;
-                }
-            }
-        });
-    }
-
-    // -----------------------------------------------------------------------
-    // D-Pad Component
+    // Glowing Cloverleaf Neon D-Pad Component
     // -----------------------------------------------------------------------
 
     fn render_dpad(&mut self, ui: &mut Ui, w: f32) {
-        let arrow_w = 56.0;
-        let ok_size = 76.0;
-        let gap = 8.0;
-        let total_w = arrow_w * 2.0 + ok_size + gap * 2.0; // 204.0
-        let pad_x = ((w - total_w) * 0.5).max(0.0);
+        let pod_h = 160.0;
+        let (rect, _) = ui.allocate_exact_size(vec2(w, pod_h), Sense::hover());
+        let c = rect.center();
+        let painter = ui.painter();
 
-        // Row 1: Up arrow
-        ui.horizontal(|ui| {
-            ui.add_space(pad_x + arrow_w + gap);
-            if dpad_arrow_button(ui, Dir::Up, vec2(ok_size, arrow_w)) {
-                self.ctrl.key(keys::DPAD_UP);
-            }
+        // 1. Generate the exact mathematical C1 cloverleaf boundary points
+        let pts = cloverleaf_points(c);
+
+        // 2. Fill cloverleaf pod with dark navy using a triangle fan from center
+        let mut mesh = egui::Mesh::default();
+        let center_idx = mesh.vertices.len() as u32;
+        mesh.vertices.push(egui::epaint::Vertex {
+            pos: c,
+            uv: egui::epaint::WHITE_UV,
+            color: Color32::from_rgb(11, 18, 30),
         });
+        for pt in &pts {
+            mesh.vertices.push(egui::epaint::Vertex {
+                pos: *pt,
+                uv: egui::epaint::WHITE_UV,
+                color: Color32::from_rgb(11, 18, 30),
+            });
+        }
+        for i in 0..pts.len() {
+            let next = (i + 1) % pts.len();
+            mesh.indices.push(center_idx);
+            mesh.indices.push(center_idx + 1 + i as u32);
+            mesh.indices.push(center_idx + 1 + next as u32);
+        }
+        painter.add(Shape::mesh(mesh));
 
-        ui.add_space(gap);
+        // 3. Glowing electric blue neon outline
+        let mut pts_closed = pts;
+        pts_closed.push(pts_closed[0]);
 
-        // Row 2: Left arrow, OK button, Right arrow
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = gap;
-            ui.add_space(pad_x);
-            if dpad_arrow_button(ui, Dir::Left, vec2(arrow_w, ok_size)) {
-                self.ctrl.key(keys::DPAD_LEFT);
-            }
-            if ok_button(ui, vec2(ok_size, ok_size)) {
-                self.ctrl.key(keys::DPAD_CENTER);
-            }
-            if dpad_arrow_button(ui, Dir::Right, vec2(arrow_w, ok_size)) {
-                self.ctrl.key(keys::DPAD_RIGHT);
-            }
-        });
+        // Outer soft cyan/blue bloom
+        painter.add(Shape::line(
+            pts_closed.clone(),
+            Stroke::new(8.0, Color32::from_rgba_premultiplied(0, 110, 255, 30)),
+        ));
+        // Mid neon glow
+        painter.add(Shape::line(
+            pts_closed.clone(),
+            Stroke::new(4.5, Color32::from_rgba_premultiplied(10, 145, 255, 85)),
+        ));
+        // Core electric neon stroke
+        painter.add(Shape::line(
+            pts_closed,
+            Stroke::new(2.4, Color32::from_rgb(0, 162, 255)),
+        ));
 
-        ui.add_space(gap);
+        // 4. Directional Arrow Buttons in the 4 lobes
+        let dist = 44.0;
+        let r_btn = 16.0;
 
-        // Row 3: Down arrow
-        ui.horizontal(|ui| {
-            ui.add_space(pad_x + arrow_w + gap);
-            if dpad_arrow_button(ui, Dir::Down, vec2(ok_size, arrow_w)) {
-                self.ctrl.key(keys::DPAD_DOWN);
-            }
-        });
+        // Up Button
+        let p_up = c + vec2(0.0, -dist);
+        let rect_up = Rect::from_center_size(p_up, vec2(r_btn * 2.0, r_btn * 2.0));
+        let resp_up = ui.interact(rect_up, ui.scope_id().with("dpad_up"), Sense::click());
+        if hold_logic(ui, &resp_up) {
+            self.ctrl.key(keys::DPAD_UP);
+        }
+        let bg_up = if resp_up.is_pointer_button_down_on() { BTN_ACTIVE } else if resp_up.hovered() { BTN_HOVER } else { BTN_BG };
+        painter.circle_filled(p_up, r_btn, bg_up);
+        painter.circle_stroke(p_up, r_btn, Stroke::new(1.0, BORDER));
+        draw_arrow_triangle(painter, p_up, Dir::Up, 6.5, Color32::WHITE);
+
+        // Down Button
+        let p_down = c + vec2(0.0, dist);
+        let rect_down = Rect::from_center_size(p_down, vec2(r_btn * 2.0, r_btn * 2.0));
+        let resp_down = ui.interact(rect_down, ui.scope_id().with("dpad_down"), Sense::click());
+        if hold_logic(ui, &resp_down) {
+            self.ctrl.key(keys::DPAD_DOWN);
+        }
+        let bg_down = if resp_down.is_pointer_button_down_on() { BTN_ACTIVE } else if resp_down.hovered() { BTN_HOVER } else { BTN_BG };
+        painter.circle_filled(p_down, r_btn, bg_down);
+        painter.circle_stroke(p_down, r_btn, Stroke::new(1.0, BORDER));
+        draw_arrow_triangle(painter, p_down, Dir::Down, 6.5, Color32::WHITE);
+
+        // Left Button
+        let p_left = c + vec2(-dist, 0.0);
+        let rect_left = Rect::from_center_size(p_left, vec2(r_btn * 2.0, r_btn * 2.0));
+        let resp_left = ui.interact(rect_left, ui.scope_id().with("dpad_left"), Sense::click());
+        if hold_logic(ui, &resp_left) {
+            self.ctrl.key(keys::DPAD_LEFT);
+        }
+        let bg_left = if resp_left.is_pointer_button_down_on() { BTN_ACTIVE } else if resp_left.hovered() { BTN_HOVER } else { BTN_BG };
+        painter.circle_filled(p_left, r_btn, bg_left);
+        painter.circle_stroke(p_left, r_btn, Stroke::new(1.0, BORDER));
+        draw_arrow_triangle(painter, p_left, Dir::Left, 6.5, Color32::WHITE);
+
+        // Right Button
+        let p_right = c + vec2(dist, 0.0);
+        let rect_right = Rect::from_center_size(p_right, vec2(r_btn * 2.0, r_btn * 2.0));
+        let resp_right = ui.interact(rect_right, ui.scope_id().with("dpad_right"), Sense::click());
+        if hold_logic(ui, &resp_right) {
+            self.ctrl.key(keys::DPAD_RIGHT);
+        }
+        let bg_right = if resp_right.is_pointer_button_down_on() { BTN_ACTIVE } else if resp_right.hovered() { BTN_HOVER } else { BTN_BG };
+        painter.circle_filled(p_right, r_btn, bg_right);
+        painter.circle_stroke(p_right, r_btn, Stroke::new(1.0, BORDER));
+        draw_arrow_triangle(painter, p_right, Dir::Right, 6.5, Color32::WHITE);
+
+        // 5. Center Circular OK Button (Blank circle per user request)
+        let r_ok = 24.0;
+        let rect_ok = Rect::from_center_size(c, vec2(r_ok * 2.0, r_ok * 2.0));
+        let resp_ok = ui.interact(rect_ok, ui.scope_id().with("dpad_ok"), Sense::click());
+        if resp_ok.clicked() {
+            self.ctrl.key(keys::DPAD_CENTER);
+        }
+        let bg_ok = if resp_ok.is_pointer_button_down_on() {
+            ACCENT_ACTIVE
+        } else if resp_ok.hovered() {
+            ACCENT_HOVER
+        } else {
+            ACCENT
+        };
+        painter.circle_filled(c, r_ok, bg_ok);
+        painter.circle_stroke(c, r_ok, Stroke::new(1.2, Color32::from_rgb(80, 160, 255)));
     }
 
     // -----------------------------------------------------------------------
@@ -604,17 +660,17 @@ impl RemoteApp {
     fn render_nav_row(&mut self, ui: &mut Ui, w: f32) {
         let gap = 8.0;
         let btn_w = (w - 2.0 * gap) / 3.0;
-        let h = 46.0;
+        let h = 36.0;
 
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = gap;
-            if custom_button(ui, vec2(btn_w, h), "Back", BtnIcon::Back, None, 14.0, false) {
+            if custom_button(ui, vec2(btn_w, h), "Back", BtnIcon::Back, None, 12.0, false) {
                 self.ctrl.key(keys::BACK);
             }
-            if custom_button(ui, vec2(btn_w, h), "Home", BtnIcon::Home, None, 14.0, false) {
+            if custom_button(ui, vec2(btn_w, h), "Home", BtnIcon::Home, None, 12.0, false) {
                 self.ctrl.key(keys::HOME);
             }
-            if custom_button(ui, vec2(btn_w, h), "Menu", BtnIcon::Menu, None, 14.0, false) {
+            if custom_button(ui, vec2(btn_w, h), "Menu", BtnIcon::Menu, None, 12.0, false) {
                 self.ctrl.key(keys::MENU);
             }
         });
@@ -627,20 +683,20 @@ impl RemoteApp {
     fn render_function_row_1(&mut self, ui: &mut Ui, w: f32) {
         let gap = 8.0;
         let btn_w = (w - 3.0 * gap) / 4.0;
-        let h = 44.0;
+        let h = 34.0;
 
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = gap;
-            if custom_button(ui, vec2(btn_w, h), "Vol -", BtnIcon::VolMinus, None, 12.0, true) {
+            if custom_button(ui, vec2(btn_w, h), "Vol -", BtnIcon::VolMinus, None, 10.0, true) {
                 self.ctrl.key(keys::VOLUME_DOWN);
             }
-            if custom_button(ui, vec2(btn_w, h), "Mute", BtnIcon::Mute, None, 12.0, false) {
+            if custom_button(ui, vec2(btn_w, h), "Mute", BtnIcon::Mute, None, 10.0, false) {
                 self.ctrl.key(keys::VOLUME_MUTE);
             }
-            if custom_button(ui, vec2(btn_w, h), "Vol +", BtnIcon::VolPlus, None, 12.0, true) {
+            if custom_button(ui, vec2(btn_w, h), "Vol +", BtnIcon::VolPlus, None, 10.0, true) {
                 self.ctrl.key(keys::VOLUME_UP);
             }
-            if custom_button(ui, vec2(btn_w, h), "Input", BtnIcon::Input, None, 12.0, false) {
+            if custom_button(ui, vec2(btn_w, h), "Input", BtnIcon::Input, None, 10.0, false) {
                 self.ctrl.key(keys::TV_INPUT);
             }
         });
@@ -649,20 +705,20 @@ impl RemoteApp {
     fn render_function_row_2(&mut self, ui: &mut Ui, w: f32) {
         let gap = 8.0;
         let btn_w = (w - 3.0 * gap) / 4.0;
-        let h = 44.0;
+        let h = 34.0;
 
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = gap;
-            if custom_button(ui, vec2(btn_w, h), "Ch -", BtnIcon::ChevronDown, None, 12.0, true) {
+            if custom_button(ui, vec2(btn_w, h), "Ch -", BtnIcon::ChevronDown, None, 10.0, true) {
                 self.ctrl.key(keys::CHANNEL_DOWN);
             }
-            if custom_button(ui, vec2(btn_w, h), "Ch +", BtnIcon::ChevronUp, None, 12.0, true) {
+            if custom_button(ui, vec2(btn_w, h), "Ch +", BtnIcon::ChevronUp, None, 10.0, true) {
                 self.ctrl.key(keys::CHANNEL_UP);
             }
-            if custom_button(ui, vec2(btn_w, h), "Guide", BtnIcon::Guide, None, 12.0, false) {
+            if custom_button(ui, vec2(btn_w, h), "Guide", BtnIcon::Guide, None, 10.0, false) {
                 self.ctrl.key(keys::GUIDE);
             }
-            if custom_button(ui, vec2(btn_w, h), "Info", BtnIcon::Info, None, 12.0, false) {
+            if custom_button(ui, vec2(btn_w, h), "Info", BtnIcon::Info, None, 10.0, false) {
                 self.ctrl.key(keys::INFO);
             }
         });
@@ -671,17 +727,17 @@ impl RemoteApp {
     fn render_function_row_3(&mut self, ui: &mut Ui, w: f32) {
         let gap = 8.0;
         let btn_w = (w - 2.0 * gap) / 3.0;
-        let h = 46.0;
+        let h = 34.0;
 
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = gap;
-            if custom_button(ui, vec2(btn_w, h), "Prev", BtnIcon::Prev, None, 12.0, true) {
+            if custom_button(ui, vec2(btn_w, h), "Prev", BtnIcon::Prev, None, 10.0, true) {
                 self.ctrl.key(keys::MEDIA_PREVIOUS);
             }
-            if custom_button(ui, vec2(btn_w, h), "Play/Pause", BtnIcon::PlayPause, None, 12.0, false) {
+            if custom_button(ui, vec2(btn_w, h), "Play/Pause", BtnIcon::PlayPause, None, 10.0, false) {
                 self.ctrl.key(keys::MEDIA_PLAY_PAUSE);
             }
-            if custom_button(ui, vec2(btn_w, h), "Next", BtnIcon::Next, None, 12.0, true) {
+            if custom_button(ui, vec2(btn_w, h), "Next", BtnIcon::Next, None, 10.0, true) {
                 self.ctrl.key(keys::MEDIA_NEXT);
             }
         });
@@ -690,17 +746,18 @@ impl RemoteApp {
     fn render_function_row_4(&mut self, ui: &mut Ui, w: f32) {
         let gap = 8.0;
         let btn_w = (w - 2.0 * gap) / 3.0;
-        let h = 44.0;
+        let h = 34.0;
 
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = gap;
-            if custom_button(ui, vec2(btn_w, h), "Search", BtnIcon::Search, None, 12.0, false) {
+            // Icon-only buttons for Search, Captions, Settings
+            if custom_button(ui, vec2(btn_w, h), "", BtnIcon::Search, None, 10.0, false) {
                 self.ctrl.key(keys::SEARCH);
             }
-            if custom_button(ui, vec2(btn_w, h), "Captions", BtnIcon::Captions, None, 12.0, false) {
+            if custom_button(ui, vec2(btn_w, h), "", BtnIcon::Captions, None, 10.0, false) {
                 self.ctrl.key(keys::CAPTIONS);
             }
-            if custom_button(ui, vec2(btn_w, h), "Settings", BtnIcon::Settings, None, 12.0, false) {
+            if custom_button(ui, vec2(btn_w, h), "", BtnIcon::Settings, None, 10.0, false) {
                 self.ctrl.key(keys::SETTINGS);
             }
         });
@@ -711,39 +768,39 @@ impl RemoteApp {
     // -----------------------------------------------------------------------
 
     fn render_apps_section(&mut self, ui: &mut Ui, w: f32) {
-        ui.label(RichText::new("Apps").size(14.0).strong().color(TEXT_MUTED));
-        ui.add_space(4.0);
+        ui.label(RichText::new("Apps").size(13.0).strong().color(TEXT_MUTED));
+        ui.add_space(3.0);
 
         let gap = 8.0;
         let btn_w = (w - 2.0 * gap) / 3.0;
-        let h = 46.0;
+        let h = 34.0;
 
-        // Row 1: YouTube, Netflix, Prime
+        // Row 1: YouTube, Netflix, Prime Video (Prime is icon-only)
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = gap;
-            if custom_button(ui, vec2(btn_w, h), "YouTube", BtnIcon::YouTube, None, 12.0, false) {
+            if custom_button(ui, vec2(btn_w, h), "YouTube", BtnIcon::YouTube, None, 10.0, false) {
                 self.ctrl.launch("https://www.youtube.com");
             }
-            if custom_button(ui, vec2(btn_w, h), "Netflix", BtnIcon::Netflix, None, 12.0, false) {
+            if custom_button(ui, vec2(btn_w, h), "Netflix", BtnIcon::Netflix, None, 10.0, false) {
                 self.ctrl.launch("https://www.netflix.com/title");
             }
-            if custom_button(ui, vec2(btn_w, h), "Prime", BtnIcon::Prime, None, 12.0, false) {
+            if custom_button(ui, vec2(btn_w, h), "", BtnIcon::Prime, None, 10.0, false) {
                 self.ctrl.launch("https://app.primevideo.com");
             }
         });
 
-        ui.add_space(6.0);
+        ui.add_space(4.0);
 
-        // Row 2: Disney+, Hotstar, Spotify
+        // Row 2: Disney+ (icon-only), Hotstar, Spotify
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = gap;
-            if custom_button(ui, vec2(btn_w, h), "Disney+", BtnIcon::Disney, None, 12.0, false) {
+            if custom_button(ui, vec2(btn_w, h), "", BtnIcon::Disney, None, 10.0, false) {
                 self.ctrl.launch("https://www.disneyplus.com");
             }
-            if custom_button(ui, vec2(btn_w, h), "Hotstar", BtnIcon::Hotstar, None, 12.0, false) {
+            if custom_button(ui, vec2(btn_w, h), "Hotstar", BtnIcon::Hotstar, None, 10.0, false) {
                 self.ctrl.launch("https://www.hotstar.com");
             }
-            if custom_button(ui, vec2(btn_w, h), "Spotify", BtnIcon::Spotify, None, 12.0, false) {
+            if custom_button(ui, vec2(btn_w, h), "Spotify", BtnIcon::Spotify, None, 10.0, false) {
                 self.ctrl.launch("spotify://");
             }
         });
@@ -876,10 +933,27 @@ impl RemoteApp {
 
         ui.add_space(14.0);
 
-        // Virtual Keyboard
+        // Virtual Keyboard & Direct Text Entry
         ui.label(RichText::new("Type on TV").size(15.0).strong().color(TEXT_WHITE));
-        ui.label(RichText::new("Tap letters to enter text into search or input fields").color(TEXT_MUTED).size(11.5));
-        ui.add_space(6.0);
+        ui.label(RichText::new("Type or paste search queries and text directly into the TV").color(TEXT_MUTED).size(11.5));
+        ui.add_space(8.0);
+
+        // Direct Text Input Bar
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 6.0;
+            let te = egui::TextEdit::singleline(&mut self.typed_text)
+                .hint_text("Type text here...")
+                .desired_width(w - 74.0);
+            let te_resp = ui.add(te);
+            let enter_hit = te_resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+            if ui.button("Send").clicked() || enter_hit {
+                if !self.typed_text.is_empty() {
+                    self.ctrl.send_text(&self.typed_text);
+                    self.typed_text.clear();
+                }
+            }
+        });
+        ui.add_space(8.0);
 
         let gap = 4.0;
         let kw = ((w - 9.0 * gap) / 10.0).floor();
@@ -889,9 +963,7 @@ impl RemoteApp {
                 ui.spacing_mut().item_spacing.x = gap;
                 for c in row.chars() {
                     if custom_button(ui, vec2(kw, 42.0), &c.to_string(), BtnIcon::None, None, 8.0, false) {
-                        if let Some(k) = keys::key_for_char(c) {
-                            self.ctrl.key(k);
-                        }
+                        self.ctrl.send_text(&c.to_string());
                     }
                 }
             });
@@ -904,9 +976,7 @@ impl RemoteApp {
             let small = vec2(kw * 1.4, 42.0);
             for (label, c) in [(".", '.'), ("@", '@'), ("-", '-'), ("/", '/')] {
                 if custom_button(ui, small, label, BtnIcon::None, None, 8.0, false) {
-                    if let Some(k) = keys::key_for_char(c) {
-                        self.ctrl.key(k);
-                    }
+                    self.ctrl.send_text(&c.to_string());
                 }
             }
         });
@@ -916,7 +986,7 @@ impl RemoteApp {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = gap;
             if custom_button(ui, vec2(w * 0.40, 46.0), "Space", BtnIcon::None, None, 10.0, false) {
-                self.ctrl.key(keys::SPACE);
+                self.ctrl.send_text(" ");
             }
             if custom_button(ui, vec2(w * 0.26, 46.0), "Delete", BtnIcon::None, None, 10.0, true) {
                 self.ctrl.key(keys::DEL);
@@ -1100,16 +1170,20 @@ fn custom_button(
         Color32::from_rgb(226, 232, 240)
     };
 
-    let font_id = FontId::proportional(13.5);
+    let font_id = FontId::proportional(12.0);
 
     if icon == BtnIcon::None {
         painter.text(c, Align2::CENTER_CENTER, label, font_id, text_color);
     } else if label.is_empty() {
         draw_btn_icon(painter, c, icon, text_color);
     } else {
-        let icon_w = 18.0;
-        let gap = 6.5;
-        let text_w = (label.len() as f32) * 7.5;
+        let icon_w = match icon {
+            BtnIcon::Prime => 22.0,
+            BtnIcon::None => 0.0,
+            _ => 15.0,
+        };
+        let gap = 5.0;
+        let text_w = (label.len() as f32) * 6.6;
         let total_w = icon_w + gap + text_w;
         let start_x = c.x - total_w * 0.5;
 
@@ -1158,51 +1232,14 @@ fn draw_btn_icon(painter: &egui::Painter, c: Pos2, icon: BtnIcon, color: Color32
 // D-Pad Widgets
 // ---------------------------------------------------------------------------
 
-fn ok_button(ui: &mut Ui, size: Vec2) -> bool {
-    let (rect, resp) = ui.allocate_exact_size(size, Sense::click());
-    let bg = if resp.is_pointer_button_down_on() {
-        ACCENT_ACTIVE
-    } else if resp.hovered() {
-        ACCENT_HOVER
-    } else {
-        ACCENT
-    };
-    let painter = ui.painter();
-    painter.rect_filled(rect, 16.0, bg);
-    painter.rect_stroke(rect, 16.0, Stroke::new(1.0, Color32::from_rgb(60, 140, 255)), StrokeKind::Inside);
-    painter.text(
-        rect.center(),
-        Align2::CENTER_CENTER,
-        "OK",
-        FontId::proportional(19.0),
-        Color32::WHITE,
-    );
-    resp.clicked()
-}
 
-fn dpad_arrow_button(ui: &mut Ui, dir: Dir, size: Vec2) -> bool {
-    let (rect, resp) = ui.allocate_exact_size(size, Sense::click());
-    let fire = hold_logic(ui, &resp);
-    let bg = if resp.is_pointer_button_down_on() {
-        BTN_ACTIVE
-    } else if resp.hovered() {
-        BTN_HOVER
-    } else {
-        BTN_BG
-    };
-    let painter = ui.painter();
-    painter.rect_filled(rect, 16.0, bg);
-    painter.rect_stroke(rect, 16.0, Stroke::new(1.0, BORDER), StrokeKind::Inside);
-    draw_arrow_triangle(painter, rect.center(), dir, 7.5, Color32::WHITE);
-    fire
-}
 
 // ---------------------------------------------------------------------------
 // Bottom Navigation Bar
 // ---------------------------------------------------------------------------
 
 fn bottom_nav_bar(ui: &mut Ui, current_tab: &mut Tab, w: f32) {
-    let bar_h = 58.0;
+    let bar_h = 52.0;
     let (rect, _) = ui.allocate_exact_size(vec2(w, bar_h), Sense::hover());
     let painter = ui.painter();
 
@@ -1235,7 +1272,7 @@ fn bottom_nav_bar(ui: &mut Ui, current_tab: &mut Tab, w: f32) {
         let color = if is_active { ACCENT } else { TEXT_MUTED };
 
         // Icon
-        let icon_c = pos2(item_rect.center().x, item_rect.min.y + 17.0);
+        let icon_c = pos2(item_rect.center().x, item_rect.min.y + 15.0);
         match tab {
             Tab::Remote => draw_nav_remote(painter, icon_c, color),
             Tab::Apps => draw_nav_apps(painter, icon_c, color),
@@ -1244,21 +1281,21 @@ fn bottom_nav_bar(ui: &mut Ui, current_tab: &mut Tab, w: f32) {
         }
 
         // Text label
-        let text_c = pos2(item_rect.center().x, item_rect.min.y + 36.0);
+        let text_c = pos2(item_rect.center().x, item_rect.min.y + 33.0);
         painter.text(
             text_c,
             Align2::CENTER_CENTER,
             label,
-            FontId::proportional(11.5),
+            FontId::proportional(11.0),
             color,
         );
 
         // Active blue underline indicator
         if is_active {
-            let line_c = pos2(item_rect.center().x, item_rect.max.y - 4.5);
+            let line_c = pos2(item_rect.center().x, item_rect.max.y - 3.0);
             painter.rect_filled(
-                Rect::from_center_size(line_c, vec2(28.0, 2.8)),
-                1.4,
+                Rect::from_center_size(line_c, vec2(28.0, 2.5)),
+                1.25,
                 ACCENT,
             );
         }
