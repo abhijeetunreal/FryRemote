@@ -166,12 +166,13 @@ impl<'a> M3Button<'a> {
 
         match (self.label, self.icon) {
             (Some(text), Some(icon)) if icon != BtnIcon::None => {
-                // Horizontal icon + text
-                let font_id = FontId::proportional(12.5);
+                // Responsive horizontal icon + text
+                let font_size = (self.size.y * 0.25).clamp(11.0, 14.5);
+                let font_id = FontId::proportional(font_size);
                 let text_layout = painter.layout_no_wrap(text.to_string(), font_id.clone(), fg_color);
                 let text_w = text_layout.size().x;
-                let icon_w = 17.0;
-                let gap = 5.5;
+                let icon_w = (self.size.y * 0.34).clamp(14.0, 20.0);
+                let gap = (self.size.y * 0.10).clamp(4.0, 8.0);
                 let total_w = icon_w + gap + text_w;
                 let start_x = c.x - total_w * 0.5;
 
@@ -181,12 +182,12 @@ impl<'a> M3Button<'a> {
                 painter.text(pos2(start_x + icon_w + gap, c.y), Align2::LEFT_CENTER, text, font_id, fg_color);
             }
             (Some(text), _) => {
-                let font_size = if draw_rect.height() < 36.0 { 11.5 } else { 13.0 };
+                let font_size = (self.size.y * 0.28).clamp(11.0, 14.0);
                 painter.text(c, Align2::CENTER_CENTER, text, FontId::proportional(font_size), fg_color);
             }
             (None, Some(icon)) => {
-                let icon_size = vec2((draw_rect.width() * 0.48).min(24.0), (draw_rect.height() * 0.48).min(24.0));
-                let icon_rect = Rect::from_center_size(c, icon_size);
+                let icon_dim = (self.size.y * 0.46).min(self.size.x * 0.46).clamp(14.0, 26.0);
+                let icon_rect = Rect::from_center_size(c, vec2(icon_dim, icon_dim));
                 render_btn_svg(ui, icon_rect, icon, fg_color);
             }
             (None, None) => {}

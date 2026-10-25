@@ -22,9 +22,9 @@ pub fn render_expressive_header(
     now: f64,
 ) {
     let avail_w = ui.available_width();
-    let header_h = 44.0;
-    let btn_size = 40.0;
-    let btn_gap = 6.0;
+    let header_h = ui.available_height().min(48.0).max(36.0);
+    let btn_size = (header_h * 0.90).clamp(34.0, 42.0);
+    let btn_gap = (avail_w * 0.016).clamp(4.0, 7.0);
 
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = btn_gap;
@@ -49,7 +49,7 @@ pub fn render_expressive_header(
 
         // 4 buttons on right: Power, Theme, Keyboard, Advanced
         let right_cluster_w = 4.0 * btn_size + 4.0 * btn_gap;
-        let pill_w = (avail_w - right_cluster_w - btn_gap).clamp(140.0, 210.0);
+        let pill_w = (avail_w - right_cluster_w - btn_gap).clamp(130.0, 220.0);
         let (pill_rect, pill_resp) = ui.allocate_exact_size(vec2(pill_w, header_h), Sense::click());
 
         let pill_bg = if pill_resp.is_pointer_button_down_on() {
@@ -76,7 +76,7 @@ pub fn render_expressive_header(
             name_p,
             Align2::LEFT_CENTER,
             &active_name,
-            FontId::proportional(12.5),
+            FontId::proportional((header_h * 0.28).clamp(11.0, 13.5)),
             palette.text,
         );
 
@@ -90,7 +90,7 @@ pub fn render_expressive_header(
             fb_p,
             Align2::LEFT_CENTER,
             feedback_text,
-            FontId::proportional(10.0),
+            FontId::proportional((header_h * 0.22).clamp(9.0, 11.0)),
             fb_color,
         );
 
@@ -136,7 +136,8 @@ pub fn render_expressive_header(
 
             ui.painter().rect_filled(p_draw_rect, btn_size * 0.5, p_bg);
             ui.painter().rect_stroke(p_draw_rect, btn_size * 0.5, Stroke::new(1.2, p_border), StrokeKind::Inside);
-            draw_icon_power_ring(ui.painter(), Rect::from_center_size(p_draw_rect.center(), vec2(20.0, 20.0)), p_fg);
+            let icon_dim = (btn_size * 0.46).clamp(15.0, 20.0);
+            draw_icon_power_ring(ui.painter(), Rect::from_center_size(p_draw_rect.center(), vec2(icon_dim * 1.05, icon_dim * 1.05)), p_fg);
 
             if power_resp.clicked() {
                 haptics::trigger(HapticStyle::Heavy);
@@ -161,7 +162,7 @@ pub fn render_expressive_header(
             };
             ui.painter().rect_filled(t_draw_rect, btn_size * 0.5, t_bg);
             ui.painter().rect_stroke(t_draw_rect, btn_size * 0.5, palette.outline(), StrokeKind::Inside);
-            svg_palette(ui, Rect::from_center_size(t_draw_rect.center(), vec2(18.0, 18.0)), palette.primary);
+            svg_palette(ui, Rect::from_center_size(t_draw_rect.center(), vec2(icon_dim, icon_dim)), palette.primary);
 
             if theme_resp.clicked() {
                 haptics::trigger(HapticStyle::Light);
@@ -184,7 +185,7 @@ pub fn render_expressive_header(
             };
             ui.painter().rect_filled(kb_draw_rect, btn_size * 0.5, kb_bg);
             ui.painter().rect_stroke(kb_draw_rect, btn_size * 0.5, palette.outline(), StrokeKind::Inside);
-            svg_keyboard(ui, Rect::from_center_size(kb_draw_rect.center(), vec2(18.0, 18.0)), palette.text);
+            svg_keyboard(ui, Rect::from_center_size(kb_draw_rect.center(), vec2(icon_dim, icon_dim)), palette.text);
 
             if kb_resp.clicked() {
                 haptics::trigger(HapticStyle::Light);
@@ -206,7 +207,7 @@ pub fn render_expressive_header(
             };
             ui.painter().rect_filled(adv_draw_rect, btn_size * 0.5, adv_bg);
             ui.painter().rect_stroke(adv_draw_rect, btn_size * 0.5, palette.outline(), StrokeKind::Inside);
-            svg_tune(ui, Rect::from_center_size(adv_draw_rect.center(), vec2(18.0, 18.0)), palette.text_muted);
+            svg_tune(ui, Rect::from_center_size(adv_draw_rect.center(), vec2(icon_dim, icon_dim)), palette.text_muted);
 
             if adv_resp.clicked() {
                 haptics::trigger(HapticStyle::Heavy);

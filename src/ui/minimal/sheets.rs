@@ -37,8 +37,14 @@ pub fn render_minimal_sheets(
         return;
     }
 
-    let sheet_w = total_rect.width().min(330.0);
-    let sheet_x = (total_rect.width() - sheet_w) * 0.5;
+    let total_w = total_rect.width();
+    let is_desktop_wide = total_w > 480.0;
+    let sheet_w = if is_desktop_wide {
+        (total_w * 0.40).clamp(360.0, 460.0)
+    } else {
+        (total_w - 20.0).clamp(280.0, 420.0)
+    };
+    let sheet_x = (total_w - sheet_w) * 0.5;
 
     match state.active_sheet {
         ActiveSheet::Apps => {

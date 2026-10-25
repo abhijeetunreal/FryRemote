@@ -120,7 +120,7 @@ pub fn draw_apple_clickpad(
         center,
         Align2::CENTER_CENTER,
         "CLICK / SWIPE",
-        FontId::proportional(9.0),
+        FontId::proportional((pad_size * 0.042).clamp(8.5, 12.0)),
         Color32::from_rgba_unmultiplied(palette.text.r(), palette.text.g(), palette.text.b(), 65),
     );
 

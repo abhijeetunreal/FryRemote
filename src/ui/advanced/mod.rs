@@ -147,7 +147,7 @@ fn render_header(
 
             // Mode switcher pill (loops layouts)
             let next_mode = ui_mode.next();
-            let mode_btn = egui::Button::new(RichText::new(format!("⚡ {}", next_mode.name())).size(11.5).strong().color(Color32::from_rgb(147, 197, 253)))
+            let mode_btn = egui::Button::new(RichText::new(format!("Mode: {}", next_mode.name())).size(11.5).strong().color(Color32::from_rgb(147, 197, 253)))
                 .fill(Color32::from_rgb(20, 35, 60))
                 .stroke(Stroke::new(1.0, Color32::from_rgb(59, 130, 246)))
                 .corner_radius(14.0);

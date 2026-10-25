@@ -77,60 +77,58 @@ pub fn draw_expressive_dpad(
     let pressed_dir = if is_down { hovered_dir } else { None };
     let center_pressed = is_down && center_hovered;
 
-    // Directional button zones & visual arrow indicators
-    let arrow_size = 28.0;
+    // Directional button zones & responsive visual arrow indicators
+    let arr_w = (size * 0.038).clamp(6.5, 11.5);
+    let arr_h = (size * 0.022).clamp(3.5, 6.8);
+    let stroke_thick = (size * 0.009).clamp(1.8, 2.6);
     let arrow_color = palette.text;
     let active_color = palette.primary;
 
     // Up
     let up_c = pos2(center.x, rect.min.y + size * 0.16);
-    let _up_rect = Rect::from_center_size(up_c, vec2(arrow_size, arrow_size));
     if pressed_dir == Some(DpadAction::Up) {
         let pad_zone = Rect::from_min_max(pos2(rect.min.x + cr * 0.5, rect.min.y), pos2(rect.max.x - cr * 0.5, center_rect.min.y));
         painter.rect_filled(pad_zone, cr * 0.5, Color32::from_rgba_unmultiplied(255, 255, 255, 14));
     }
-    let up_stroke = if pressed_dir == Some(DpadAction::Up) { Stroke::new(2.4, active_color) } else { Stroke::new(2.0, arrow_color) };
+    let up_stroke = if pressed_dir == Some(DpadAction::Up) { Stroke::new(stroke_thick + 0.4, active_color) } else { Stroke::new(stroke_thick, arrow_color) };
     painter.add(Shape::line(
-        vec![pos2(up_c.x - 9.0, up_c.y + 4.0), pos2(up_c.x, up_c.y - 5.0), pos2(up_c.x + 9.0, up_c.y + 4.0)],
+        vec![pos2(up_c.x - arr_w, up_c.y + arr_h), pos2(up_c.x, up_c.y - arr_h), pos2(up_c.x + arr_w, up_c.y + arr_h)],
         up_stroke,
     ));
 
     // Down
     let down_c = pos2(center.x, rect.max.y - size * 0.16);
-    let _down_rect = Rect::from_center_size(down_c, vec2(arrow_size, arrow_size));
     if pressed_dir == Some(DpadAction::Down) {
         let pad_zone = Rect::from_min_max(pos2(rect.min.x + cr * 0.5, center_rect.max.y), pos2(rect.max.x - cr * 0.5, rect.max.y));
         painter.rect_filled(pad_zone, cr * 0.5, Color32::from_rgba_unmultiplied(255, 255, 255, 14));
     }
-    let down_stroke = if pressed_dir == Some(DpadAction::Down) { Stroke::new(2.4, active_color) } else { Stroke::new(2.0, arrow_color) };
+    let down_stroke = if pressed_dir == Some(DpadAction::Down) { Stroke::new(stroke_thick + 0.4, active_color) } else { Stroke::new(stroke_thick, arrow_color) };
     painter.add(Shape::line(
-        vec![pos2(down_c.x - 9.0, down_c.y - 4.0), pos2(down_c.x, down_c.y + 5.0), pos2(down_c.x + 9.0, down_c.y - 4.0)],
+        vec![pos2(down_c.x - arr_w, down_c.y - arr_h), pos2(down_c.x, down_c.y + arr_h), pos2(down_c.x + arr_w, down_c.y - arr_h)],
         down_stroke,
     ));
 
     // Left
     let left_c = pos2(rect.min.x + size * 0.16, center.y);
-    let _left_rect = Rect::from_center_size(left_c, vec2(arrow_size, arrow_size));
     if pressed_dir == Some(DpadAction::Left) {
         let pad_zone = Rect::from_min_max(pos2(rect.min.x, rect.min.y + cr * 0.5), pos2(center_rect.min.x, rect.max.y - cr * 0.5));
         painter.rect_filled(pad_zone, cr * 0.5, Color32::from_rgba_unmultiplied(255, 255, 255, 14));
     }
-    let left_stroke = if pressed_dir == Some(DpadAction::Left) { Stroke::new(2.4, active_color) } else { Stroke::new(2.0, arrow_color) };
+    let left_stroke = if pressed_dir == Some(DpadAction::Left) { Stroke::new(stroke_thick + 0.4, active_color) } else { Stroke::new(stroke_thick, arrow_color) };
     painter.add(Shape::line(
-        vec![pos2(left_c.x + 4.0, left_c.y - 9.0), pos2(left_c.x - 5.0, left_c.y), pos2(left_c.x + 4.0, left_c.y + 9.0)],
+        vec![pos2(left_c.x + arr_h, left_c.y - arr_w), pos2(left_c.x - arr_h, left_c.y), pos2(left_c.x + arr_h, left_c.y + arr_w)],
         left_stroke,
     ));
 
     // Right
     let right_c = pos2(rect.max.x - size * 0.16, center.y);
-    let _right_rect = Rect::from_center_size(right_c, vec2(arrow_size, arrow_size));
     if pressed_dir == Some(DpadAction::Right) {
         let pad_zone = Rect::from_min_max(pos2(center_rect.max.x, rect.min.y + cr * 0.5), pos2(rect.max.x, rect.max.y - cr * 0.5));
         painter.rect_filled(pad_zone, cr * 0.5, Color32::from_rgba_unmultiplied(255, 255, 255, 14));
     }
-    let right_stroke = if pressed_dir == Some(DpadAction::Right) { Stroke::new(2.4, active_color) } else { Stroke::new(2.0, arrow_color) };
+    let right_stroke = if pressed_dir == Some(DpadAction::Right) { Stroke::new(stroke_thick + 0.4, active_color) } else { Stroke::new(stroke_thick, arrow_color) };
     painter.add(Shape::line(
-        vec![pos2(right_c.x - 4.0, right_c.y - 9.0), pos2(right_c.x + 5.0, right_c.y), pos2(right_c.x - 4.0, right_c.y + 9.0)],
+        vec![pos2(right_c.x - arr_h, right_c.y - arr_w), pos2(right_c.x + arr_h, right_c.y), pos2(right_c.x - arr_h, right_c.y + arr_w)],
         right_stroke,
     ));
 
@@ -158,7 +156,7 @@ pub fn draw_expressive_dpad(
         ok_draw_rect.center(),
         Align2::CENTER_CENTER,
         "OK",
-        FontId::proportional(15.0),
+        FontId::proportional((center_btn_size * 0.17).clamp(12.0, 18.0)),
         palette.on_primary,
     );
 

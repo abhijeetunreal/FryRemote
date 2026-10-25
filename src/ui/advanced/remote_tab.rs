@@ -227,9 +227,9 @@ fn render_scalable_dpad(
 }
 
 fn render_nav_row(ui: &mut Ui, ctrl: &mut Controller, w: f32) {
-    let gap = 8.0;
+    let gap = (w * 0.022).clamp(6.0, 10.0);
     let btn_w = (w - 2.0 * gap) / 3.0;
-    let h = 38.0;
+    let h = (w * 0.10).clamp(34.0, 44.0);
 
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = gap;
@@ -246,9 +246,9 @@ fn render_nav_row(ui: &mut Ui, ctrl: &mut Controller, w: f32) {
 }
 
 fn render_function_row_1(ui: &mut Ui, ctrl: &mut Controller, w: f32) {
-    let gap = 7.0;
+    let gap = (w * 0.020).clamp(5.0, 8.0);
     let btn_w = (w - 3.0 * gap) / 4.0;
-    let h = 36.0;
+    let h = (w * 0.095).clamp(32.0, 42.0);
 
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = gap;
@@ -268,9 +268,9 @@ fn render_function_row_1(ui: &mut Ui, ctrl: &mut Controller, w: f32) {
 }
 
 fn render_function_row_2(ui: &mut Ui, ctrl: &mut Controller, w: f32) {
-    let gap = 7.0;
+    let gap = (w * 0.020).clamp(5.0, 8.0);
     let btn_w = (w - 3.0 * gap) / 4.0;
-    let h = 36.0;
+    let h = (w * 0.095).clamp(32.0, 42.0);
 
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = gap;
@@ -290,9 +290,9 @@ fn render_function_row_2(ui: &mut Ui, ctrl: &mut Controller, w: f32) {
 }
 
 fn render_function_row_3(ui: &mut Ui, ctrl: &mut Controller, w: f32) {
-    let gap = 8.0;
+    let gap = (w * 0.022).clamp(6.0, 10.0);
     let btn_w = (w - 2.0 * gap) / 3.0;
-    let h = 38.0;
+    let h = (w * 0.10).clamp(34.0, 44.0);
 
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = gap;
@@ -309,9 +309,9 @@ fn render_function_row_3(ui: &mut Ui, ctrl: &mut Controller, w: f32) {
 }
 
 fn render_function_row_4(ui: &mut Ui, ctrl: &mut Controller, w: f32) {
-    let gap = 8.0;
+    let gap = (w * 0.022).clamp(6.0, 10.0);
     let btn_w = (w - 2.0 * gap) / 3.0;
-    let h = 36.0;
+    let h = (w * 0.095).clamp(32.0, 42.0);
 
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = gap;
@@ -331,9 +331,9 @@ fn render_apps_section(ui: &mut Ui, ctrl: &mut Controller, w: f32) {
     ui.label(eframe::egui::RichText::new("Apps").size(13.5).strong().color(TEXT_WHITE));
     ui.add_space(4.0);
 
-    let gap = 8.0;
+    let gap = (w * 0.022).clamp(6.0, 10.0);
     let btn_w = (w - 2.0 * gap) / 3.0;
-    let h = 36.0;
+    let h = (w * 0.095).clamp(32.0, 42.0);
 
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = gap;
