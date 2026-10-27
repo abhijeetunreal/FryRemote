@@ -38,6 +38,7 @@ pub struct Shared {
     pub current_app: Option<String>,
     pub discovered: Vec<Tv>,
     pub scanning: bool,
+    pub scan_completed: bool,
     pub pairing: PairingUi,
     /// Set when pairing succeeds so the UI can mark the TV as paired.
     pub paired_host: Option<String>,
@@ -52,6 +53,7 @@ impl Default for Shared {
             current_app: None,
             discovered: vec![],
             scanning: false,
+            scan_completed: false,
             pairing: PairingUi::None,
             paired_host: None,
         }

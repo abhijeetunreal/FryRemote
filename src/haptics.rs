@@ -67,77 +67,77 @@ fn feedback(style: HapticStyle, duration_ms: i64) {
 }
 
 #[cfg(target_os = "android")]
-fn try_android_feedback(style: HapticStyle, duration_ms: i64) -> Result<(), Box<dyn std::error::Error>> {
+fn try_android_feedback(_style: HapticStyle, duration_ms: i64) -> Result<(), Box<dyn std::error::Error>> {
     use jni::objects::{JObject, JValue};
     use jni::JavaVM;
 
     let ctx = ndk_context::android_context();
+    if ctx.vm().is_null() || ctx.context().is_null() {
+        return Ok(());
+    }
+
     let vm = unsafe { JavaVM::from_raw(ctx.vm().cast())? };
     let mut env = vm.attach_current_thread()?;
     let activity = unsafe { JObject::from_raw(ctx.context().cast()) };
+    if activity.is_null() {
+        return Ok(());
+    }
 
-    let window = env.call_method(&activity, "getWindow", "()Landroid/view/Window;", &[])?.l()?;
-    if !window.is_null() {
-        let decor = env.call_method(&window, "getDecorView", "()Landroid/view/View;", &[])?.l()?;
-        if !decor.is_null() {
-            // 1. Play native Android click sound if enabled (SoundEffectConstants.CLICK = 0)
-            if is_sound_enabled() {
-                let _ = env.call_method(&decor, "playSoundEffect", "(I)V", &[JValue::Int(0)]);
+    // 1. Play native Android click sound if enabled via AudioManager (thread-safe, does not require UI thread)
+    if is_sound_enabled() {
+        let play_sound = || -> Result<(), Box<dyn std::error::Error>> {
+            let audio_svc = env.new_string("audio")?;
+            let audio_mgr = env
+                .call_method(
+                    &activity,
+                    "getSystemService",
+                    "(Ljava/lang/String;)Ljava/lang/Object;",
+                    &[JValue::Object(&audio_svc)],
+                )?
+                .l()?;
+
+            if !audio_mgr.is_null() {
+                // AudioManager.FX_KEY_CLICK = 0
+                let _ = env.call_method(&audio_mgr, "playSoundEffect", "(I)V", &[JValue::Int(0)]);
             }
+            Ok(())
+        };
 
-            // 2. Perform native view haptic feedback if haptics enabled
-            if is_enabled() {
-                // HapticFeedbackConstants:
-                // LONG_PRESS = 0, VIRTUAL_KEY = 1, KEYBOARD_TAP = 3, CLOCK_TICK = 4
-                let feedback_constant = match style {
-                    HapticStyle::Tick => 4,
-                    HapticStyle::Light => 3,
-                    HapticStyle::Medium => 1,
-                    HapticStyle::Heavy => 0,
-                };
-
-                // FLAG_IGNORE_VIEW_SETTING = 1 to guarantee execution
-                let performed = env
-                    .call_method(
-                        &decor,
-                        "performHapticFeedback",
-                        "(II)Z",
-                        &[JValue::Int(feedback_constant), JValue::Int(1)],
-                    )
-                    .and_then(|v| v.z())
-                    .unwrap_or(false);
-
-                if performed {
-                    return Ok(());
-                }
-
-                // Fallback to single argument performHapticFeedback(int)
-                let performed_single = env
-                    .call_method(&decor, "performHapticFeedback", "(I)Z", &[JValue::Int(feedback_constant)])
-                    .and_then(|v| v.z())
-                    .unwrap_or(false);
-
-                if performed_single {
-                    return Ok(());
-                }
-            }
+        let _ = play_sound();
+        if env.exception_check().unwrap_or(false) {
+            let _ = env.exception_clear();
         }
     }
 
-    // 3. Fallback to direct Vibrator service
+    // 2. Perform vibration feedback via Vibrator system service (thread-safe, does not touch View hierarchy)
     if is_enabled() {
-        let service_name = env.new_string("vibrator")?;
-        let vibrator = env
-            .call_method(
-                &activity,
-                "getSystemService",
-                "(Ljava/lang/String;)Ljava/lang/Object;",
-                &[JValue::Object(&service_name)],
-            )?
-            .l()?;
+        let vibrate = || -> Result<(), Box<dyn std::error::Error>> {
+            let vib_svc = env.new_string("vibrator")?;
+            let vibrator = env
+                .call_method(
+                    &activity,
+                    "getSystemService",
+                    "(Ljava/lang/String;)Ljava/lang/Object;",
+                    &[JValue::Object(&vib_svc)],
+                )?
+                .l()?;
 
-        if !vibrator.is_null() {
-            env.call_method(&vibrator, "vibrate", "(J)V", &[JValue::Long(duration_ms)])?;
+            if !vibrator.is_null() {
+                let has_vib = env
+                    .call_method(&vibrator, "hasVibrator", "()Z", &[])
+                    .and_then(|v| v.z())
+                    .unwrap_or(true);
+
+                if has_vib {
+                    let _ = env.call_method(&vibrator, "vibrate", "(J)V", &[JValue::Long(duration_ms)]);
+                }
+            }
+            Ok(())
+        };
+
+        let _ = vibrate();
+        if env.exception_check().unwrap_or(false) {
+            let _ = env.exception_clear();
         }
     }
 

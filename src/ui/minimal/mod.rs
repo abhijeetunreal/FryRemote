@@ -171,17 +171,18 @@ pub fn render_minimal_ui(
         .active
         .as_ref()
         .map(|t| t.name.clone())
-        .or_else(|| ctrl.store.tvs.first().map(|t| t.name.clone()))
-        .unwrap_or_else(|| "Living Room".to_string());
+        .or_else(|| ctrl.store.tvs.first().map(|t| t.name.clone()));
 
     let default_status = if !state.tv_powered {
-        "Standby"
+        "Standby".to_string()
     } else if is_connected {
-        &active_name
+        active_name.unwrap_or_else(|| "Connected".to_string())
+    } else if let Some(name) = active_name {
+        format!("{name} • Offline")
     } else {
-        "Offline"
+        "No TV • Tap to Scan".to_string()
     };
-    let pill_text = state.current_feedback(now, default_status);
+    let pill_text = state.current_feedback(now, &default_status);
 
     let pill_w = (inner_w * 0.48).clamp(130.0, 185.0);
     let pill_rect = Rect::from_min_size(header_rect.min, vec2(pill_w, header_h));

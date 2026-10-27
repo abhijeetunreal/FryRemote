@@ -213,12 +213,9 @@ pub struct Controller {
 #[cfg(target_arch = "wasm32")]
 impl Controller {
     pub fn new_web(notify: Notify) -> Self {
-        let mut shared = Shared::default();
-        shared.status = ConnStatus::Connected;
-        shared.powered = Some(true);
-        shared.volume = Some((35, 100, false));
+        let shared = Shared::default();
         let store = Store::demo();
-        let active = store.tvs.first().cloned();
+        let active = None;
 
         Self {
             shared: Arc::new(Mutex::new(shared)),
@@ -248,10 +245,8 @@ impl Controller {
         notify();
         let mut s = shared.lock().unwrap();
         s.scanning = false;
-        s.discovered = vec![
-            Tv { name: "Living Room Google TV (Demo)".into(), host: "192.168.1.100".into(), paired: true },
-            Tv { name: "Bedroom Android TV (Demo)".into(), host: "192.168.1.102".into(), paired: false },
-        ];
+        s.scan_completed = true;
+        s.discovered.clear();
         notify();
     }
 

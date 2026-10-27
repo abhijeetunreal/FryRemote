@@ -190,7 +190,7 @@ fn render_tv_card(
         .as_ref()
         .map(|t| t.name.clone())
         .or_else(|| ctrl.store.tvs.first().map(|t| t.name.clone()))
-        .unwrap_or_else(|| "Living Room".to_string());
+        .unwrap_or_else(|| "No TV Connected".to_string());
 
     let text_x = draw_card_rect.min.x + 54.0;
     painter.text(
@@ -293,8 +293,11 @@ fn render_tv_selector_drawer(
                 }
             });
 
-            for d in &snap.discovered {
-                if !ctrl.store.tvs.iter().any(|t| t.host == d.host) {
+            let unadded_discovered: Vec<_> = snap.discovered.iter().filter(|d| !ctrl.store.tvs.iter().any(|t| t.host == d.host)).collect();
+            if !snap.scanning && unadded_discovered.is_empty() {
+                ui.label(RichText::new("No TVs available nearby. Tap Scan to search again.").size(12.0).color(Color32::from_rgb(148, 163, 184)));
+            } else {
+                for d in unadded_discovered {
                     ui.horizontal(|ui| {
                         ui.label(format!("{} ({})", d.name, d.host));
                         if ui.button("Add & Pair").clicked() {

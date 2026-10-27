@@ -35,17 +35,18 @@ pub fn render_expressive_header(
             .active
             .as_ref()
             .map(|t| t.name.clone())
-            .or_else(|| ctrl.store.tvs.first().map(|t| t.name.clone()))
-            .unwrap_or_else(|| "Living Room TV".to_string());
+            .or_else(|| ctrl.store.tvs.first().map(|t| t.name.clone()));
 
         let default_status = if !state.tv_powered {
-            "Standby Mode"
+            "Standby Mode".to_string()
         } else if is_connected {
-            "Connected • Google TV"
+            format!("{} • Connected", active_name.as_deref().unwrap_or("Google TV"))
+        } else if let Some(name) = &active_name {
+            format!("{name} • Offline")
         } else {
-            "Offline • Tap to Connect"
+            "No TV • Tap to Scan".to_string()
         };
-        let feedback_text = state.current_feedback(now, default_status);
+        let feedback_text = state.current_feedback(now, &default_status);
 
         // 4 buttons on right: Power, Theme, Keyboard, Advanced
         let right_cluster_w = 4.0 * btn_size + 4.0 * btn_gap;
@@ -72,10 +73,11 @@ pub fn render_expressive_header(
         let text_x = pill_rect.min.x + 26.0;
 
         let name_p = pos2(text_x, pill_rect.center().y - 8.0);
+        let display_name = active_name.as_deref().unwrap_or("Google TV Remote");
         painter.text(
             name_p,
             Align2::LEFT_CENTER,
-            &active_name,
+            display_name,
             FontId::proportional((header_h * 0.28).clamp(11.0, 13.5)),
             palette.text,
         );

@@ -54,6 +54,10 @@ pub fn scan(shared: Arc<Mutex<Shared>>, notify: Arc<dyn Fn() + Send + Sync>, sec
         Err(e) => log::warn!("mDNS unavailable: {e}"),
     }
 
-    shared.lock().unwrap().scanning = false;
+    {
+        let mut s = shared.lock().unwrap();
+        s.scanning = false;
+        s.scan_completed = true;
+    }
     notify();
 }

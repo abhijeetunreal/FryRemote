@@ -21,11 +21,7 @@ impl Store {
     pub fn demo() -> Self {
         Self {
             path: PathBuf::new(),
-            tvs: vec![Tv {
-                name: "Living Room Google TV (Demo)".into(),
-                host: "192.168.1.100".into(),
-                paired: true,
-            }],
+            tvs: vec![],
         }
     }
 

@@ -206,12 +206,13 @@ fn render_device_sheet(
     palette: &ThemePalette,
     state: &mut UiState,
     ctrl: &mut Controller,
-    _snap: &Shared,
+    snap: &Shared,
     screen_rect: Rect,
     screen: &mut crate::app::Screen,
     now: f64,
 ) {
-    let sheet_h = 420.0;
+    let base_h: f32 = if state.show_ip_pad { 490.0 } else { 420.0 };
+    let sheet_h = base_h.min(screen_rect.height() - 30.0);
     let sheet_rect = sheet_rect_for(screen_rect, sheet_h);
     let painter = ui.painter();
     painter.rect_filled(sheet_rect, 34.0, palette.surface);
@@ -221,112 +222,240 @@ fn render_device_sheet(
     let handle_c = pos2(sheet_rect.center().x, sheet_rect.min.y + 12.0);
     painter.rect_filled(Rect::from_center_size(handle_c, vec2(40.0, 4.5)), 2.5, Color32::from_rgba_unmultiplied(255, 255, 255, 50));
 
-    // Title
+    // Title & Scan Button row
+    let title_y = sheet_rect.min.y + 36.0;
     painter.text(
-        pos2(sheet_rect.min.x + 20.0, sheet_rect.min.y + 36.0),
+        pos2(sheet_rect.min.x + 20.0, title_y),
         Align2::LEFT_CENTER,
         "Select Google TV",
         FontId::proportional(16.0),
         palette.text,
     );
 
-    let mut item_y = sheet_rect.min.y + 60.0;
-    let item_h = 56.0;
-    let item_w = sheet_rect.width() - 40.0;
-
-    // List of Saved TVs
-    for tv in ctrl.store.tvs.clone() {
-        let is_active = ctrl.active.as_ref().map(|t| t.host == tv.host).unwrap_or(false);
-        let rect = Rect::from_min_size(pos2(sheet_rect.min.x + 20.0, item_y), vec2(item_w, item_h));
-        let resp = ui.interact(rect, ui.scope_id().with(&tv.host), Sense::click());
-
-        let bg = if is_active {
-            palette.primary_container
-        } else if resp.hovered() {
-            palette.surface_high
-        } else {
-            palette.surface_low
-        };
-
-        let fg = if is_active { palette.on_primary_container } else { palette.text };
-        painter.rect_filled(rect, 18.0, bg);
-        painter.rect_stroke(rect, 18.0, palette.outline(), StrokeKind::Inside);
-
-        // TV icon
-        let icon_box = Rect::from_center_size(pos2(rect.min.x + 24.0, rect.center().y), vec2(20.0, 20.0));
-        svg_tv(ui, icon_box, fg);
-
-        // Labels
-        painter.text(
-            pos2(rect.min.x + 48.0, rect.center().y - 8.0),
-            Align2::LEFT_CENTER,
-            &tv.name,
-            FontId::proportional(13.0),
-            fg,
-        );
-        let sub = format!("{} • {}", tv.host, if is_active { "Connected" } else { "Saved" });
-        painter.text(
-            pos2(rect.min.x + 48.0, rect.center().y + 8.5),
-            Align2::LEFT_CENTER,
-            sub,
-            FontId::proportional(11.0),
-            if is_active { palette.on_primary_container } else { palette.text_muted },
-        );
-
-        if is_active {
-            let check_box = Rect::from_center_size(pos2(rect.max.x - 24.0, rect.center().y), vec2(18.0, 18.0));
-            draw_icon_check(painter, check_box, fg);
-        }
-
-        if resp.clicked() {
-            haptics::trigger(HapticStyle::Light);
-            if !is_active {
-                ctrl.connect(&tv);
-                state.send_command_feedback(format!("Switched to {}", tv.name), now);
-            }
-            state.close_sheet();
-        }
-
-        item_y += item_h + 8.0;
+    // Scan button on right
+    let scan_w = 76.0;
+    let scan_h = 28.0;
+    let scan_rect = Rect::from_min_size(
+        pos2(sheet_rect.max.x - 20.0 - scan_w, title_y - 14.0),
+        vec2(scan_w, scan_h),
+    );
+    let scan_resp = ui.interact(scan_rect, ui.scope_id().with("expr_scan_btn"), Sense::click());
+    let scan_bg = if snap.scanning {
+        palette.surface_high
+    } else if scan_resp.hovered() {
+        palette.primary
+    } else {
+        palette.surface_low
+    };
+    let scan_fg = if scan_resp.hovered() && !snap.scanning {
+        palette.on_primary
+    } else {
+        palette.primary
+    };
+    painter.rect_filled(scan_rect, 14.0, scan_bg);
+    painter.rect_stroke(scan_rect, 14.0, palette.outline(), StrokeKind::Inside);
+    painter.text(
+        scan_rect.center(),
+        Align2::CENTER_CENTER,
+        if snap.scanning { "Scanning…" } else { "⟳ Scan" },
+        FontId::proportional(12.0),
+        scan_fg,
+    );
+    if scan_resp.clicked() && !snap.scanning {
+        haptics::trigger(HapticStyle::Light);
+        ctrl.scan();
+        state.send_command_feedback("Scanning Wi-Fi...".to_string(), now);
     }
 
-    // Discovered or Add TV by IP
-    let add_rect = Rect::from_min_size(pos2(sheet_rect.min.x + 20.0, item_y), vec2(item_w, 44.0));
-    let add_resp = ui.interact(add_rect, ui.scope_id().with("add_tv_btn"), Sense::click());
-    painter.rect_filled(add_rect, 16.0, palette.surface_low);
-    painter.rect_stroke(add_rect, 16.0, palette.outline(), StrokeKind::Inside);
-    painter.text(
-        add_rect.center(),
-        Align2::CENTER_CENTER,
-        "+ Add TV by IP Address",
-        FontId::proportional(12.5),
-        palette.primary,
+    // Scrollable content area
+    let scroll_rect = Rect::from_min_max(
+        pos2(sheet_rect.min.x + 16.0, sheet_rect.min.y + 56.0),
+        pos2(sheet_rect.max.x - 16.0, sheet_rect.max.y - 12.0),
     );
 
-    if add_resp.clicked() {
-        haptics::trigger(HapticStyle::Light);
-        state.show_ip_pad = !state.show_ip_pad;
-    }
+    let mut child_ui = ui.new_child(egui::UiBuilder::new().max_rect(scroll_rect));
+    egui::ScrollArea::vertical()
+        .auto_shrink([false, false])
+        .show(&mut child_ui, |ui| {
+            ui.add_space(4.0);
 
-    if state.show_ip_pad {
-        item_y += 50.0;
-        let pad_zone = Rect::from_min_size(pos2(sheet_rect.min.x + 20.0, item_y), vec2(item_w, 140.0));
-        ui.allocate_ui(pad_zone.size(), |ui| {
-            ui.label(eframe::egui::RichText::new(if state.ip_input.is_empty() { "192.168.1._" } else { &state.ip_input }).monospace().color(palette.primary));
-            keypad(ui, &mut state.ip_input, false, 15);
-            let valid = state.ip_input.parse::<std::net::Ipv4Addr>().is_ok();
-            if ui.add_enabled(valid, egui::Button::new("Pair & Connect").fill(palette.primary)).clicked() {
-                let host = state.ip_input.clone();
-                let new_tv = Tv { name: format!("Google TV ({host})"), host, paired: false };
-                ctrl.store.upsert(new_tv.clone());
-                ctrl.start_pairing(&new_tv);
-                *screen = crate::app::Screen::Pair(new_tv);
-                state.ip_input.clear();
-                state.show_ip_pad = false;
-                state.close_sheet();
+            // 1. Saved TVs
+            if !ctrl.store.tvs.is_empty() {
+                ui.label(egui::RichText::new("Saved TVs").strong().size(12.0).color(palette.text_muted));
+                ui.add_space(4.0);
+
+                for tv in ctrl.store.tvs.clone() {
+                    let is_active = ctrl.active.as_ref().map(|t| t.host == tv.host).unwrap_or(false);
+                    let (card_rect, resp) = ui.allocate_exact_size(vec2(ui.available_width(), 52.0), Sense::click());
+                    let p = ui.painter();
+
+                    let bg = if is_active {
+                        palette.primary_container
+                    } else if resp.hovered() {
+                        palette.surface_high
+                    } else {
+                        palette.surface_low
+                    };
+                    let fg = if is_active { palette.on_primary_container } else { palette.text };
+                    p.rect_filled(card_rect, 16.0, bg);
+                    p.rect_stroke(card_rect, 16.0, palette.outline(), StrokeKind::Inside);
+
+                    let icon_box = Rect::from_center_size(pos2(card_rect.min.x + 24.0, card_rect.center().y), vec2(20.0, 20.0));
+                    svg_tv(ui, icon_box, fg);
+
+                    p.text(
+                        pos2(card_rect.min.x + 48.0, card_rect.center().y - 8.0),
+                        Align2::LEFT_CENTER,
+                        &tv.name,
+                        FontId::proportional(13.0),
+                        fg,
+                    );
+                    let sub = format!("{} • {}", tv.host, if is_active { "Connected" } else { "Saved" });
+                    p.text(
+                        pos2(card_rect.min.x + 48.0, card_rect.center().y + 8.5),
+                        Align2::LEFT_CENTER,
+                        sub,
+                        FontId::proportional(11.0),
+                        if is_active { palette.on_primary_container } else { palette.text_muted },
+                    );
+
+                    if is_active {
+                        let check_box = Rect::from_center_size(pos2(card_rect.max.x - 24.0, card_rect.center().y), vec2(18.0, 18.0));
+                        draw_icon_check(p, check_box, fg);
+                    }
+
+                    if resp.clicked() {
+                        haptics::trigger(HapticStyle::Light);
+                        if !is_active {
+                            ctrl.connect(&tv);
+                            state.send_command_feedback(format!("Switched to {}", tv.name), now);
+                        }
+                        state.close_sheet();
+                    }
+                    ui.add_space(4.0);
+                }
+                ui.add_space(8.0);
             }
+
+            // 2. Nearby Discovered TVs
+            ui.label(egui::RichText::new("Nearby on Wi-Fi").strong().size(12.0).color(palette.text_muted));
+            ui.add_space(4.0);
+
+            if snap.scanning {
+                ui.horizontal(|ui| {
+                    ui.spinner();
+                    ui.label(egui::RichText::new("Scanning for nearby Google & Android TVs…").size(12.0).color(palette.text));
+                });
+                ui.add_space(6.0);
+            }
+
+            let unadded: Vec<_> = snap.discovered.iter().filter(|d| !ctrl.store.tvs.iter().any(|t| t.host == d.host)).cloned().collect();
+
+            if !unadded.is_empty() {
+                for tv in unadded {
+                    let (card_rect, resp) = ui.allocate_exact_size(vec2(ui.available_width(), 52.0), Sense::click());
+                    let p = ui.painter();
+
+                    let bg = if resp.hovered() { palette.surface_high } else { palette.surface_low };
+                    p.rect_filled(card_rect, 16.0, bg);
+                    p.rect_stroke(card_rect, 16.0, palette.outline(), StrokeKind::Inside);
+
+                    let icon_box = Rect::from_center_size(pos2(card_rect.min.x + 24.0, card_rect.center().y), vec2(20.0, 20.0));
+                    svg_tv(ui, icon_box, palette.primary);
+
+                    p.text(
+                        pos2(card_rect.min.x + 48.0, card_rect.center().y - 8.0),
+                        Align2::LEFT_CENTER,
+                        &tv.name,
+                        FontId::proportional(13.0),
+                        palette.text,
+                    );
+                    p.text(
+                        pos2(card_rect.min.x + 48.0, card_rect.center().y + 8.5),
+                        Align2::LEFT_CENTER,
+                        format!("{} • Tap to Pair", tv.host),
+                        FontId::proportional(11.0),
+                        palette.primary,
+                    );
+
+                    if resp.clicked() {
+                        haptics::trigger(HapticStyle::Medium);
+                        ctrl.store.upsert(tv.clone());
+                        ctrl.start_pairing(&tv);
+                        *screen = crate::app::Screen::Pair(tv);
+                        state.close_sheet();
+                    }
+                    ui.add_space(4.0);
+                }
+            } else if !snap.scanning {
+                let (empty_rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 80.0), Sense::hover());
+                let p = ui.painter();
+                p.rect_filled(empty_rect, 16.0, palette.surface_low);
+                p.rect_stroke(empty_rect, 16.0, palette.outline(), StrokeKind::Inside);
+
+                p.text(
+                    pos2(empty_rect.center().x, empty_rect.min.y + 22.0),
+                    Align2::CENTER_CENTER,
+                    "No TVs Available Nearby",
+                    FontId::proportional(13.0),
+                    palette.text,
+                );
+                p.text(
+                    pos2(empty_rect.center().x, empty_rect.min.y + 42.0),
+                    Align2::CENTER_CENTER,
+                    "Make sure your TV is awake & connected to this Wi-Fi network.",
+                    FontId::proportional(11.0),
+                    palette.text_muted,
+                );
+
+                // Scan Again inline button
+                let rescan_btn = Rect::from_center_size(pos2(empty_rect.center().x, empty_rect.min.y + 63.0), vec2(96.0, 22.0));
+                let rescan_resp = ui.interact(rescan_btn, ui.scope_id().with("expr_rescan_btn_inner"), Sense::click());
+                if rescan_resp.hovered() {
+                    p.rect_filled(rescan_btn, 8.0, palette.primary);
+                    p.text(rescan_btn.center(), Align2::CENTER_CENTER, "Scan Again", FontId::proportional(10.5), palette.on_primary);
+                } else {
+                    p.rect_filled(rescan_btn, 8.0, palette.surface_high);
+                    p.text(rescan_btn.center(), Align2::CENTER_CENTER, "Scan Again", FontId::proportional(10.5), palette.primary);
+                }
+                if rescan_resp.clicked() {
+                    haptics::trigger(HapticStyle::Light);
+                    ctrl.scan();
+                    state.send_command_feedback("Scanning Wi-Fi...".to_string(), now);
+                }
+
+                ui.add_space(6.0);
+            }
+
+            ui.add_space(8.0);
+
+            // 3. Add TV by IP Address
+            let ip_btn_text = if state.show_ip_pad { "Hide IP Entry" } else { "+ Add TV by IP Address" };
+            if ui.add(egui::Button::new(egui::RichText::new(ip_btn_text).size(12.5).color(palette.primary)).fill(palette.surface_low).corner_radius(16.0).min_size(vec2(ui.available_width(), 42.0))).clicked() {
+                haptics::trigger(HapticStyle::Light);
+                state.show_ip_pad = !state.show_ip_pad;
+            }
+
+            if state.show_ip_pad {
+                ui.add_space(6.0);
+                ui.label(egui::RichText::new(if state.ip_input.is_empty() { "192.168.1._" } else { &state.ip_input }).monospace().size(16.0).color(palette.primary));
+                keypad(ui, &mut state.ip_input, false, 15);
+                let valid = state.ip_input.parse::<std::net::Ipv4Addr>().is_ok();
+                if ui.add_enabled(valid, egui::Button::new(egui::RichText::new("Pair & Connect").color(palette.on_primary)).fill(palette.primary).corner_radius(16.0).min_size(vec2(ui.available_width(), 42.0))).clicked() {
+                    haptics::trigger(HapticStyle::Medium);
+                    let host = state.ip_input.clone();
+                    let new_tv = Tv { name: format!("Google TV ({host})"), host, paired: false };
+                    ctrl.store.upsert(new_tv.clone());
+                    ctrl.start_pairing(&new_tv);
+                    *screen = crate::app::Screen::Pair(new_tv);
+                    state.ip_input.clear();
+                    state.show_ip_pad = false;
+                    state.close_sheet();
+                }
+            }
+
+            ui.add_space(10.0);
         });
-    }
 }
 
 // ---------------------------------------------------------------------------
