@@ -85,25 +85,22 @@ fn try_android_feedback(_style: HapticStyle, duration_ms: i64) -> Result<(), Box
 
     // 1. Play native Android click sound if enabled via AudioManager (thread-safe, does not require UI thread)
     if is_sound_enabled() {
-        let play_sound = || -> Result<(), Box<dyn std::error::Error>> {
-            let audio_svc = env.new_string("audio")?;
-            let audio_mgr = env
+        if let Ok(audio_svc) = env.new_string("audio") {
+            if let Ok(audio_mgr) = env
                 .call_method(
                     &activity,
                     "getSystemService",
                     "(Ljava/lang/String;)Ljava/lang/Object;",
                     &[JValue::Object(&audio_svc)],
-                )?
-                .l()?;
-
-            if !audio_mgr.is_null() {
-                // AudioManager.FX_KEY_CLICK = 0
-                let _ = env.call_method(&audio_mgr, "playSoundEffect", "(I)V", &[JValue::Int(0)]);
+                )
+                .and_then(|v| v.l())
+            {
+                if !audio_mgr.is_null() {
+                    // AudioManager.FX_KEY_CLICK = 0
+                    let _ = env.call_method(&audio_mgr, "playSoundEffect", "(I)V", &[JValue::Int(0)]);
+                }
             }
-            Ok(())
-        };
-
-        let _ = play_sound();
+        }
         if env.exception_check().unwrap_or(false) {
             let _ = env.exception_clear();
         }
@@ -111,31 +108,28 @@ fn try_android_feedback(_style: HapticStyle, duration_ms: i64) -> Result<(), Box
 
     // 2. Perform vibration feedback via Vibrator system service (thread-safe, does not touch View hierarchy)
     if is_enabled() {
-        let vibrate = || -> Result<(), Box<dyn std::error::Error>> {
-            let vib_svc = env.new_string("vibrator")?;
-            let vibrator = env
+        if let Ok(vib_svc) = env.new_string("vibrator") {
+            if let Ok(vibrator) = env
                 .call_method(
                     &activity,
                     "getSystemService",
                     "(Ljava/lang/String;)Ljava/lang/Object;",
                     &[JValue::Object(&vib_svc)],
-                )?
-                .l()?;
+                )
+                .and_then(|v| v.l())
+            {
+                if !vibrator.is_null() {
+                    let has_vib = env
+                        .call_method(&vibrator, "hasVibrator", "()Z", &[])
+                        .and_then(|v| v.z())
+                        .unwrap_or(true);
 
-            if !vibrator.is_null() {
-                let has_vib = env
-                    .call_method(&vibrator, "hasVibrator", "()Z", &[])
-                    .and_then(|v| v.z())
-                    .unwrap_or(true);
-
-                if has_vib {
-                    let _ = env.call_method(&vibrator, "vibrate", "(J)V", &[JValue::Long(duration_ms)]);
+                    if has_vib {
+                        let _ = env.call_method(&vibrator, "vibrate", "(J)V", &[JValue::Long(duration_ms)]);
+                    }
                 }
             }
-            Ok(())
-        };
-
-        let _ = vibrate();
+        }
         if env.exception_check().unwrap_or(false) {
             let _ = env.exception_clear();
         }
